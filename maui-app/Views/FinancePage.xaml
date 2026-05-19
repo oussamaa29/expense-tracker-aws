@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:ExpenseTracker.ViewModels"
+             xmlns:models="clr-namespace:ExpenseTracker.Models"
+             x:Class="ExpenseTracker.Views.FinancePage"
+             x:DataType="vm:FinanceViewModel"
+             Title="File de Révision">
+
+    <ContentPage.ToolbarItems>
+        <ToolbarItem Text="Déconnexion" Clicked="OnLogoutClicked" />
+    </ContentPage.ToolbarItems>
+
+    <ContentPage.BindingContext>
+        <vm:FinanceViewModel />
+    </ContentPage.BindingContext>
+
+    <Grid RowDefinitions="Auto,*">
+
+        <!-- Error Banner -->
+        <Label Grid.Row="0"
+               Text="{Binding ErrorMessage}"
+               BackgroundColor="#FFEBEE"
+               TextColor="#F44336"
+               Padding="12"
+               IsVisible="{Binding ErrorMessage, Converter={StaticResource StringNotEmptyConverter}}" />
+
+        <RefreshView Grid.Row="1"
+                     Command="{Binding LoadExpensesCommand}"
+                     IsRefreshing="{Binding IsBusy}">
+            <CollectionView ItemsSource="{Binding Expenses}"
+                            EmptyView="Aucune dépense en attente de révision.">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="models:ExpenseReport">
+                        <Border Margin="12,4"
+                                BackgroundColor="White"
+                                StrokeShape="RoundRectangle 10"
+                                Stroke="#E0E0E0"
+                                Padding="14">
+                            <VerticalStackLayout Spacing="8">
+
+                                <!-- Header row -->
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <Label Grid.Column="0"
+                                           Text="{Binding EmployeeId}"
+                                           FontSize="13"
+                                           TextColor="#757575"
+                                           LineBreakMode="TailTruncation" />
+                                    <Label Grid.Column="1"
+                                           Text="{Binding FormattedAmount}"
+                                           FontAttributes="Bold"
+                                           FontSize="16"
+                                           TextColor="#212121" />
+                                </Grid>
+
+                                <!-- Category & Date -->
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <Label Grid.Column="0"
+                                           Text="{Binding Category}"
+                                                   FontSize="14"
+                                           TextColor="#212121" />
+                                    <Label Grid.Column="1"
+                                           Text="{Binding FormattedDate}"
+                                           FontSize="12"
+                                           TextColor="#9E9E9E" />
+                                </Grid>
+
+                                <!-- Description -->
+                                <Label Text="{Binding Description}"
+                                       FontSize="13"
+                                       TextColor="#616161"
+                                       LineBreakMode="TailTruncation" />
+
+                                <!-- Action Buttons -->
+                                <Grid ColumnDefinitions="*,*,Auto" ColumnSpacing="8">
+                                    <Button Grid.Column="0"
+                                            Text="Approuver"
+                                            BackgroundColor="#4CAF50"
+                                            TextColor="White"
+                                            CornerRadius="6"
+                                            FontSize="13"
+                                            Command="{Binding Source={RelativeSource AncestorType={x:Type vm:FinanceViewModel}}, Path=ApproveCommand}"
+                                            CommandParameter="{Binding .}" />
+                                    <Button Grid.Column="1"
+                                            Text="Rejeter"
+                                            BackgroundColor="#F44336"
+                                            TextColor="White"
+                                            CornerRadius="6"
+                                            FontSize="13"
+                                            Command="{Binding Source={RelativeSource AncestorType={x:Type vm:FinanceViewModel}}, Path=RejectCommand}"
+                                            CommandParameter="{Binding .}" />
+                                    <Button Grid.Column="2"
+                                            Text="Détail"
+                                            BackgroundColor="#E3F2FD"
+                                            TextColor="#1565C0"
+                                            CornerRadius="6"
+                                            FontSize="13"
+                                            Command="{Binding Source={RelativeSource AncestorType={x:Type vm:FinanceViewModel}}, Path=OpenDetailCommand}"
+                                            CommandParameter="{Binding .}" />
+                                </Grid>
+
+                            </VerticalStackLayout>
+                        </Border>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+        </RefreshView>
+
+    </Grid>
+</ContentPage>

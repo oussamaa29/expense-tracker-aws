@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:ExpenseTracker.ViewModels"
+             xmlns:models="clr-namespace:ExpenseTracker.Models"
+             x:Class="ExpenseTracker.Views.EmployeePage"
+             x:DataType="vm:EmployeeViewModel"
+             Title="Mes Dépenses">
+
+    <ContentPage.BindingContext>
+        <vm:EmployeeViewModel />
+    </ContentPage.BindingContext>
+
+    <ContentPage.ToolbarItems>
+        <ToolbarItem Text="+" Command="{Binding ShowCreateFormCommand}" />
+        <ToolbarItem Text="Déconnexion" Clicked="OnLogoutClicked" />
+    </ContentPage.ToolbarItems>
+
+    <Grid RowDefinitions="Auto,Auto,*">
+
+        <!-- Error Banner -->
+        <Label Grid.Row="0"
+               Text="{Binding ErrorMessage}"
+               BackgroundColor="#FFEBEE"
+               TextColor="#F44336"
+               Padding="12"
+               IsVisible="{Binding ErrorMessage, Converter={StaticResource StringNotEmptyConverter}}" />
+
+        <!-- Create Form -->
+        <Border Grid.Row="1"
+                BackgroundColor="White"
+                StrokeShape="RoundRectangle 0,0,12,12"
+                Stroke="#E0E0E0"
+                Padding="16"
+                Margin="12,0,12,8"
+                IsVisible="{Binding IsCreating}">
+            <VerticalStackLayout Spacing="10">
+                <Label Text="Nouvelle dépense" FontSize="16" FontAttributes="Bold" TextColor="#212121" />
+
+                <Entry Placeholder="Montant (ex: 45.00)"
+                       Text="{Binding NewAmount}"
+                       Keyboard="Numeric"
+                       BackgroundColor="#F5F5F5" />
+
+                <Picker Title="Catégorie"
+                        ItemsSource="{Binding Categories}"
+                        SelectedItem="{Binding NewCategory}"
+                        BackgroundColor="#F5F5F5" />
+
+                <Editor Placeholder="Description..."
+                        Text="{Binding NewDescription}"
+                        HeightRequest="80"
+                        BackgroundColor="#F5F5F5" />
+
+                <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
+                    <Button Grid.Column="0"
+                            Text="Brouillon"
+                            Command="{Binding SaveDraftCommand}"
+                            BackgroundColor="#9E9E9E"
+                            TextColor="White"
+                            CornerRadius="6" />
+                    <Button Grid.Column="1"
+                            Text="Soumettre"
+                            Command="{Binding SubmitExpenseCommand}"
+                            BackgroundColor="#2196F3"
+                            TextColor="White"
+                            CornerRadius="6" />
+                    <Button Grid.Column="2"
+                            Text="Annuler"
+                            Command="{Binding CancelCreateCommand}"
+                            BackgroundColor="#E0E0E0"
+                            TextColor="#424242"
+                            CornerRadius="6" />
+                </Grid>
+            </VerticalStackLayout>
+        </Border>
+
+        <!-- Expenses List -->
+        <RefreshView Grid.Row="2"
+                     Command="{Binding LoadExpensesCommand}"
+                     IsRefreshing="{Binding IsBusy}">
+            <CollectionView ItemsSource="{Binding Expenses}"
+                            EmptyView="Aucune dépense. Appuyez sur + pour en créer une."
+                            SelectionMode="Single"
+                            SelectionChangedCommand="{Binding OpenDetailCommand}"
+                            SelectionChangedCommandParameter="{Binding SelectedItem, Source={RelativeSource Self}}">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="models:ExpenseReport">
+                        <Border Margin="12,4"
+                                BackgroundColor="White"
+                                StrokeShape="RoundRectangle 10"
+                                Stroke="#E0E0E0"
+                                Padding="14">
+                            <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto">
+
+                                <!-- Category & Amount -->
+                                <Label Grid.Row="0" Grid.Column="0"
+                                       Text="{Binding Category}"
+                                       FontAttributes="Bold"
+                                       FontSize="15"
+                                       TextColor="#212121"
+                                       />
+                                <Label Grid.Row="0" Grid.Column="1"
+                                       Text="{Binding FormattedAmount}"
+                                       FontAttributes="Bold"
+                                       FontSize="16"
+                                       TextColor="#212121" />
+
+                                <!-- Description -->
+                                <Label Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
+                                       Text="{Binding Description}"
+                                       FontSize="13"
+                                       TextColor="#757575"
+                                       LineBreakMode="TailTruncation" />
+
+                                <!-- Date & Status -->
+                                <Label Grid.Row="2" Grid.Column="0"
+                                       Text="{Binding FormattedDate}"
+                                       FontSize="12"
+                                       TextColor="#9E9E9E" />
+                                <Border Grid.Row="2" Grid.Column="1"
+                                        BackgroundColor="{Binding StatusColor}"
+                                        StrokeShape="RoundRectangle 10"
+                                        Padding="8,2">
+                                    <Label Text="{Binding Status}"
+                                           FontSize="11"
+                                           TextColor="White"
+                                           FontAttributes="Bold" />
+                                </Border>
+
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+        </RefreshView>
+
+    </Grid>
+</ContentPage>

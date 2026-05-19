@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:ExpenseTracker.ViewModels"
+             x:Class="ExpenseTracker.Views.LoginPage"
+             Title="Connexion"
+             BackgroundColor="#F5F5F5">
+
+    <ContentPage.BindingContext>
+        <vm:LoginViewModel />
+    </ContentPage.BindingContext>
+
+    <ScrollView>
+        <VerticalStackLayout Padding="32" Spacing="16" VerticalOptions="Center">
+
+            <!-- Logo / Title -->
+            <Label Text="Expense Tracker"
+                   FontSize="28"
+                   FontAttributes="Bold"
+                   HorizontalOptions="Center"
+                   TextColor="#2196F3" />
+
+            <Label Text="Connectez-vous à votre compte"
+                   FontSize="14"
+                   HorizontalOptions="Center"
+                   TextColor="#757575"
+                   Margin="0,0,0,16" />
+
+            <!-- Card -->
+            <Border BackgroundColor="White"
+                    StrokeShape="RoundRectangle 12"
+                    Stroke="#E0E0E0"
+                    Padding="24">
+                <VerticalStackLayout Spacing="16">
+
+                    <Label Text="Email" FontSize="13" TextColor="#424242" />
+                    <Entry Placeholder="votremail@exemple.com"
+                           Text="{Binding Email}"
+                           Keyboard="Email"
+                           BackgroundColor="#F5F5F5" />
+
+                    <Label Text="Mot de passe" FontSize="13" TextColor="#424242" />
+                    <Entry Placeholder="••••••••"
+                           Text="{Binding Password}"
+                           IsPassword="True"
+                           BackgroundColor="#F5F5F5" />
+
+                    <!-- Error -->
+                    <Label Text="{Binding ErrorMessage}"
+                           TextColor="#F44336"
+                           FontSize="13"
+                           IsVisible="{Binding ErrorMessage, Converter={StaticResource StringNotEmptyConverter}}" />
+
+                    <!-- Login Button -->
+                    <Button Text="Se connecter"
+                            Command="{Binding LoginCommand}"
+                            BackgroundColor="#2196F3"
+                            TextColor="White"
+                            CornerRadius="8"
+                            HeightRequest="48"
+                            IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBoolConverter}}" />
+
+                    <ActivityIndicator IsRunning="{Binding IsBusy}"
+                                       IsVisible="{Binding IsBusy}"
+                                       Color="#2196F3"
+                                       HorizontalOptions="Center" />
+                </VerticalStackLayout>
+            </Border>
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

@@ -1,0 +1,57 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "lambda-functions", "lambda-functions", "{856C4DC2-3AE9-E83B-83A8-488CC0A16BF6}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CreateExpense", "lambda-functions\CreateExpense\CreateExpense.csproj", "{4D22D82F-A7A6-CF62-B75A-FCA398F2B8E5}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GeneratePresignedUrl", "lambda-functions\GeneratePresignedUrl\GeneratePresignedUrl.csproj", "{FE6C0EB6-006E-0F72-5343-019072D72701}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GetExpenseById", "lambda-functions\GetExpenseById\GetExpenseById.csproj", "{E8E24BB5-9DC9-B3AA-32E1-4C444587A379}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GetExpenses", "lambda-functions\GetExpenses\GetExpenses.csproj", "{AD360851-899F-8ECB-1804-D31DBA8B78BD}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UpdateExpenseStatus", "lambda-functions\UpdateExpenseStatus\UpdateExpenseStatus.csproj", "{AE1520A8-1D23-3E5A-B91C-0AC44FAC99FB}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{4D22D82F-A7A6-CF62-B75A-FCA398F2B8E5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4D22D82F-A7A6-CF62-B75A-FCA398F2B8E5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4D22D82F-A7A6-CF62-B75A-FCA398F2B8E5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4D22D82F-A7A6-CF62-B75A-FCA398F2B8E5}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FE6C0EB6-006E-0F72-5343-019072D72701}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FE6C0EB6-006E-0F72-5343-019072D72701}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FE6C0EB6-006E-0F72-5343-019072D72701}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FE6C0EB6-006E-0F72-5343-019072D72701}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E8E24BB5-9DC9-B3AA-32E1-4C444587A379}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E8E24BB5-9DC9-B3AA-32E1-4C444587A379}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E8E24BB5-9DC9-B3AA-32E1-4C444587A379}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E8E24BB5-9DC9-B3AA-32E1-4C444587A379}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AD360851-899F-8ECB-1804-D31DBA8B78BD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AD360851-899F-8ECB-1804-D31DBA8B78BD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AD360851-899F-8ECB-1804-D31DBA8B78BD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AD360851-899F-8ECB-1804-D31DBA8B78BD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AE1520A8-1D23-3E5A-B91C-0AC44FAC99FB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AE1520A8-1D23-3E5A-B91C-0AC44FAC99FB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AE1520A8-1D23-3E5A-B91C-0AC44FAC99FB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AE1520A8-1D23-3E5A-B91C-0AC44FAC99FB}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{4D22D82F-A7A6-CF62-B75A-FCA398F2B8E5} = {856C4DC2-3AE9-E83B-83A8-488CC0A16BF6}
+		{FE6C0EB6-006E-0F72-5343-019072D72701} = {856C4DC2-3AE9-E83B-83A8-488CC0A16BF6}
+		{E8E24BB5-9DC9-B3AA-32E1-4C444587A379} = {856C4DC2-3AE9-E83B-83A8-488CC0A16BF6}
+		{AD360851-899F-8ECB-1804-D31DBA8B78BD} = {856C4DC2-3AE9-E83B-83A8-488CC0A16BF6}
+		{AE1520A8-1D23-3E5A-B91C-0AC44FAC99FB} = {856C4DC2-3AE9-E83B-83A8-488CC0A16BF6}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {0329FBB8-2673-48F4-A906-7D7B0BEBA000}
+	EndGlobalSection
+EndGlobal

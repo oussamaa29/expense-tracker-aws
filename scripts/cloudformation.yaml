@@ -1,0 +1,408 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Expense Report Tracker - Serverless Infrastructure
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: expense-tracker
+  DeployBucket:
+    Type: String
+    Description: S3 bucket containing the Lambda deployment zips
+
+Resources:
+
+  # ========== COGNITO ==========
+
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub '${ProjectName}-users'
+      AutoVerifiedAttributes: [email]
+      UsernameAttributes: [email]
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireUppercase: true
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: false
+      Schema:
+        - Name: email
+          Required: true
+          Mutable: true
+
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: !Sub '${ProjectName}-maui-client'
+      UserPoolId: !Ref UserPool
+      GenerateSecret: false
+      ExplicitAuthFlows:
+        - ALLOW_USER_PASSWORD_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+        - ALLOW_USER_SRP_AUTH
+
+  EmployeesGroup:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties:
+      GroupName: employees
+      UserPoolId: !Ref UserPool
+
+  FinanceGroup:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties:
+      GroupName: finance
+      UserPoolId: !Ref UserPool
+
+  # ========== DYNAMODB ==========
+
+  ExpenseTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub '${ProjectName}-expenses'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+        - AttributeName: Status
+          AttributeType: S
+        - AttributeName: CreatedAt
+          AttributeType: S
+        - AttributeName: Category
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: StatusIndex
+          KeySchema:
+            - AttributeName: Status
+              KeyType: HASH
+            - AttributeName: CreatedAt
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: CategoryIndex
+          KeySchema:
+            - AttributeName: Category
+              KeyType: HASH
+            - AttributeName: CreatedAt
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+
+  # ========== S3 ==========
+
+  ReceiptBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${ProjectName}-receipts-${AWS::AccountId}'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  # ========== IAM ==========
+
+  LambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${ProjectName}-lambda-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: DynamoDBAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:PutItem
+                  - dynamodb:GetItem
+                  - dynamodb:Query
+                  - dynamodb:UpdateItem
+                  - dynamodb:Scan
+                Resource:
+                  - !GetAtt ExpenseTable.Arn
+                  - !Sub '${ExpenseTable.Arn}/index/*'
+        - PolicyName: S3Access
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: [s3:PutObject, s3:GetObject]
+                Resource: !Sub '${ReceiptBucket.Arn}/*'
+
+  # ========== LAMBDA FUNCTIONS ==========
+
+  CreateExpenseFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${ProjectName}-CreateExpense'
+      Runtime: dotnet8
+      Handler: CreateExpense::CreateExpense.Function::FunctionHandler
+      Role: !GetAtt LambdaRole.Arn
+      MemorySize: 256
+      Timeout: 30
+      Code:
+        S3Bucket: !Ref DeployBucket
+        S3Key: CreateExpense.zip
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref ExpenseTable
+          BUCKET_NAME: !Ref ReceiptBucket
+
+  GetExpensesFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${ProjectName}-GetExpenses'
+      Runtime: dotnet8
+      Handler: GetExpenses::GetExpenses.Function::FunctionHandler
+      Role: !GetAtt LambdaRole.Arn
+      MemorySize: 256
+      Timeout: 30
+      Code:
+        S3Bucket: !Ref DeployBucket
+        S3Key: GetExpenses.zip
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref ExpenseTable
+
+  GetExpenseByIdFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${ProjectName}-GetExpenseById'
+      Runtime: dotnet8
+      Handler: GetExpenseById::GetExpenseById.Function::FunctionHandler
+      Role: !GetAtt LambdaRole.Arn
+      MemorySize: 256
+      Timeout: 30
+      Code:
+        S3Bucket: !Ref DeployBucket
+        S3Key: GetExpenseById.zip
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref ExpenseTable
+
+  UpdateExpenseStatusFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${ProjectName}-UpdateExpenseStatus'
+      Runtime: dotnet8
+      Handler: UpdateExpenseStatus::UpdateExpenseStatus.Function::FunctionHandler
+      Role: !GetAtt LambdaRole.Arn
+      MemorySize: 256
+      Timeout: 30
+      Code:
+        S3Bucket: !Ref DeployBucket
+        S3Key: UpdateExpenseStatus.zip
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref ExpenseTable
+
+  GeneratePresignedUrlFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${ProjectName}-GeneratePresignedUrl'
+      Runtime: dotnet8
+      Handler: GeneratePresignedUrl::GeneratePresignedUrl.Function::FunctionHandler
+      Role: !GetAtt LambdaRole.Arn
+      MemorySize: 256
+      Timeout: 30
+      Code:
+        S3Bucket: !Ref DeployBucket
+        S3Key: GeneratePresignedUrl.zip
+      Environment:
+        Variables:
+          BUCKET_NAME: !Ref ReceiptBucket
+          TABLE_NAME: !Ref ExpenseTable
+
+  # ========== API GATEWAY ==========
+
+  ExpenseApi:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: !Sub '${ProjectName}-api'
+
+  CognitoAuthorizer:
+    Type: AWS::ApiGateway::Authorizer
+    Properties:
+      Name: CognitoAuth
+      Type: COGNITO_USER_POOLS
+      RestApiId: !Ref ExpenseApi
+      IdentitySource: method.request.header.Authorization
+      ProviderARNs:
+        - !GetAtt UserPool.Arn
+
+  # /expenses
+  ExpensesResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref ExpenseApi
+      ParentId: !GetAtt ExpenseApi.RootResourceId
+      PathPart: expenses
+
+  PostExpenses:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ExpenseApi
+      ResourceId: !Ref ExpensesResource
+      HttpMethod: POST
+      AuthorizationType: COGNITO_USER_POOLS
+      AuthorizerId: !Ref CognitoAuthorizer
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${CreateExpenseFunction.Arn}/invocations'
+
+  GetExpenses:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ExpenseApi
+      ResourceId: !Ref ExpensesResource
+      HttpMethod: GET
+      AuthorizationType: COGNITO_USER_POOLS
+      AuthorizerId: !Ref CognitoAuthorizer
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${GetExpensesFunction.Arn}/invocations'
+
+  # /expenses/{expenseId}
+  ExpenseByIdResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref ExpenseApi
+      ParentId: !Ref ExpensesResource
+      PathPart: '{expenseId}'
+
+  GetExpenseById:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ExpenseApi
+      ResourceId: !Ref ExpenseByIdResource
+      HttpMethod: GET
+      AuthorizationType: COGNITO_USER_POOLS
+      AuthorizerId: !Ref CognitoAuthorizer
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${GetExpenseByIdFunction.Arn}/invocations'
+
+  PatchExpense:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ExpenseApi
+      ResourceId: !Ref ExpenseByIdResource
+      HttpMethod: PATCH
+      AuthorizationType: COGNITO_USER_POOLS
+      AuthorizerId: !Ref CognitoAuthorizer
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${UpdateExpenseStatusFunction.Arn}/invocations'
+
+  # /presigned-url
+  PresignedUrlResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref ExpenseApi
+      ParentId: !GetAtt ExpenseApi.RootResourceId
+      PathPart: presigned-url
+
+  PostPresignedUrl:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ExpenseApi
+      ResourceId: !Ref PresignedUrlResource
+      HttpMethod: POST
+      AuthorizationType: COGNITO_USER_POOLS
+      AuthorizerId: !Ref CognitoAuthorizer
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${GeneratePresignedUrlFunction.Arn}/invocations'
+
+  # Lambda invoke permissions
+  CreateExpensePerm:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref CreateExpenseFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ExpenseApi}/*'
+
+  GetExpensesPerm:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref GetExpensesFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ExpenseApi}/*'
+
+  GetExpenseByIdPerm:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref GetExpenseByIdFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ExpenseApi}/*'
+
+  UpdateStatusPerm:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref UpdateExpenseStatusFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ExpenseApi}/*'
+
+  PresignedUrlPerm:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref GeneratePresignedUrlFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ExpenseApi}/*'
+
+  # API Deployment
+  ApiDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn:
+      - PostExpenses
+      - GetExpenses
+      - GetExpenseById
+      - PatchExpense
+      - PostPresignedUrl
+    Properties:
+      RestApiId: !Ref ExpenseApi
+
+  ApiStage:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      RestApiId: !Ref ExpenseApi
+      DeploymentId: !Ref ApiDeployment
+      StageName: prod
+
+Outputs:
+  ApiUrl:
+    Value: !Sub 'https://${ExpenseApi}.execute-api.${AWS::Region}.amazonaws.com/prod'
+  UserPoolId:
+    Value: !Ref UserPool
+  UserPoolClientId:
+    Value: !Ref UserPoolClient
+  ReceiptBucketName:
+    Value: !Ref ReceiptBucket
+  ExpenseTableName:
+    Value: !Ref ExpenseTable

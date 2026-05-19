@@ -1,0 +1,13 @@
+# Build outputs
+**/bin/
+**/obj/
+deploy/
+
+# .NET
+*.user
+*.suo
+.vs/
+
+# OS
+.DS_Store
+Thumbs.db
