@@ -13,6 +13,9 @@ public partial class EmployeePage : ContentPage
     protected override async void OnAppearing()
     {
         base.OnAppearing();
+        // Reset selection so tapping the same item again works
+        var cv = this.FindByName<CollectionView>("ExpensesList");
+        if (cv != null) cv.SelectedItem = null;
         if (BindingContext is EmployeeViewModel vm)
             await vm.LoadExpensesCommand.ExecuteAsync(null);
     }

@@ -130,8 +130,9 @@ public partial class EmployeeViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private async Task OpenDetailAsync(ExpenseReport expense)
+    private async Task OpenDetailAsync(ExpenseReport? expense)
     {
+        if (expense == null) return;
         await Shell.Current.GoToAsync($"ExpenseDetailPage?expenseId={expense.ExpenseId}");
     }
 
