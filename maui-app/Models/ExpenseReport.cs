@@ -47,6 +47,27 @@ public class ExpenseReport
     };
 
     [JsonIgnore]
+    public string CategoryLabel => Category switch
+    {
+        "travel"    => "Voyage",
+        "meals"     => "Repas",
+        "equipment" => "Équipement",
+        "other"     => "Autre",
+        _           => Category
+    };
+
+    [JsonIgnore]
+    public string StatusLabel => Status switch
+    {
+        "Draft"       => "Brouillon",
+        "Submitted"   => "Soumis",
+        "Approved"    => "Approuvé",
+        "Rejected"    => "Rejeté",
+        "Resubmitted" => "Resoumis",
+        _             => Status
+    };
+
+    [JsonIgnore]
     public bool IsRejected => Status == "Rejected";
 
     [JsonIgnore]
