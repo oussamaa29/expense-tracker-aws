@@ -7,7 +7,7 @@ public class ExpenseReport
     [JsonPropertyName("expenseId")]
     public string ExpenseId { get; set; } = string.Empty;
 
-    [JsonPropertyName("employeeId")]
+    [JsonPropertyName("userEmail")]
     public string EmployeeId { get; set; } = string.Empty;
 
     [JsonPropertyName("amount")]
@@ -28,7 +28,7 @@ public class ExpenseReport
     [JsonPropertyName("updatedAt")]
     public string UpdatedAt { get; set; } = string.Empty;
 
-    [JsonPropertyName("reviewComment")]
+    [JsonPropertyName("reviewerComment")]
     public string? ReviewComment { get; set; }
 
     [JsonPropertyName("receiptKey")]
@@ -53,7 +53,7 @@ public class ExpenseReport
     public bool HasReceipt => !string.IsNullOrEmpty(ReceiptKey);
 
     [JsonIgnore]
-    public string FormattedAmount => $"${Amount:F2}";
+    public string FormattedAmount => $"{Amount:F2} €";
 
     [JsonIgnore]
     public string FormattedDate

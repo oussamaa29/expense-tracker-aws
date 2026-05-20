@@ -1,0 +1,218 @@
+﻿<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Rapport — Expense Report Tracker</title>
+<style>
+  @page { size: A4; margin: 2.2cm 2cm; }
+  * { box-sizing: border-box; }
+  body { font-family: Georgia, serif; font-size: 11pt; line-height: 1.55; color: #111; margin: 0; }
+  h1 { font-size: 18pt; color: #1a3a6b; text-align: center; margin-bottom: 4px; }
+  h2 { font-size: 13pt; color: #1a3a6b; border-bottom: 1.5px solid #1a3a6b; padding-bottom: 3px; margin-top: 22px; margin-bottom: 8px; }
+  h3 { font-size: 11pt; color: #c0392b; margin-top: 14px; margin-bottom: 4px; }
+  .cover { text-align: center; padding: 30px 0 20px; border-bottom: 2px solid #1a3a6b; margin-bottom: 20px; }
+  .cover .subtitle { font-size: 12pt; color: #555; font-style: italic; }
+  .meta-table { margin: 18px auto; border-collapse: collapse; width: 75%; }
+  .meta-table td { padding: 5px 12px; font-size: 10.5pt; }
+  .meta-table td:first-child { color: #1a3a6b; font-weight: bold; width: 110px; }
+  p { margin: 6px 0 10px; text-align: justify; }
+  pre { background: #f4f4f4; border-left: 3px solid #1a3a6b; padding: 8px 12px; font-size: 8.2pt; font-family: Courier New, monospace; margin: 8px 0; white-space: pre-wrap; }
+  code { font-family: Courier New, monospace; font-size: 9pt; background: #f0f0f0; padding: 1px 4px; border-radius: 2px; }
+  table.t { border-collapse: collapse; width: 100%; font-size: 9.5pt; margin: 10px 0; }
+  table.t th { background: #1a3a6b; color: white; padding: 5px 8px; text-align: left; }
+  table.t td { border: 1px solid #ccc; padding: 5px 8px; vertical-align: top; }
+  table.t tr:nth-child(even) td { background: #f5f7fb; }
+  .diagram { font-family: Courier New, monospace; font-size: 8.5pt; background: #f9f9f9; border: 1px solid #ccc; padding: 10px 14px; margin: 10px 0; line-height: 1.7; }
+  .pb { page-break-before: always; }
+  ul { margin: 6px 0 10px 18px; }
+  li { margin-bottom: 4px; }
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <div style="font-size:10pt;color:#555;text-transform:uppercase;letter-spacing:1px;">Module 5ENTAPP / E5WMD</div>
+  <h1>Expense Report Tracker</h1>
+  <div class="subtitle">Architecture Serverless sur AWS &mdash; Workflow d&apos;Approbation de D&eacute;penses</div>
+  <table class="meta-table">
+    <tr><td>Module</td><td>5ENTAPP / E5WMD &mdash; Enterprise Software Engineering on AWS</td></tr>
+    <tr><td>Encadrant</td><td>Dr. Abdelhak TOUITI</td></tr>
+    <tr><td>Niveau</td><td>Master &mdash; Semestre 2</td></tr>
+    <tr><td>GitHub</td><td>https://github.com/oussamaa29/expense-tracker-aws</td></tr>
+    <tr><td>R&eacute;gion AWS</td><td>eu-west-1 (Europe &mdash; Irlande)</td></tr>
+  </table>
+</div>
+
+<h2>1. Introduction et contexte industriel</h2>
+
+<p>Dans toute organisation, la gestion des notes de frais constitue un processus op&eacute;rationnel critique. Un employ&eacute; en d&eacute;placement avance des d&eacute;penses professionnelles &mdash; billets de train, repas clients, mat&eacute;riel informatique &mdash; et doit en obtenir le remboursement aupr&egrave;s du service financier. Ce processus, en apparence simple, g&eacute;n&egrave;re en pratique de nombreux dysfonctionnements lorsqu&apos;il repose sur des moyens informels : e-mails noy&eacute;s dans les bo&icirc;tes de r&eacute;ception, pi&egrave;ces jointes perdues, doubles remboursements, absence de tra&ccedil;abilit&eacute;.</p>
+
+<p>Des solutions commerciales comme SAP Concur ou Expensify ont &eacute;t&eacute; construites pr&eacute;cis&eacute;ment pour r&eacute;pondre &agrave; ce besoin. Leur fondation commune : un <strong>workflow d&apos;approbation structur&eacute;</strong>, une gestion des identit&eacute;s et des r&ocirc;les, un stockage s&eacute;curis&eacute; des justificatifs, et une interface accessible depuis tout type de terminal.</p>
+
+<p>Ce projet impl&eacute;mente une version fonctionnelle de cette application en utilisant exclusivement des services AWS g&eacute;r&eacute;s, selon une architecture serverless. Deux r&ocirc;les sont support&eacute;s : l&apos;<strong>employ&eacute;</strong> qui soumet ses d&eacute;penses, et le <strong>responsable financier</strong> qui les valide ou les rejette avec justification. Chaque d&eacute;pense suit un cycle de vie dont les transitions sont contr&ocirc;l&eacute;es c&ocirc;t&eacute; serveur afin de garantir l&apos;int&eacute;grit&eacute; du processus m&eacute;tier.</p>
+
+<h2>2. Architecture choisie</h2>
+
+<div class="diagram">
++----------------------------------------------------------+
+|                 .NET MAUI (Windows)                      |
+|       EmployeePage  |  FinancePage  |  DetailPage        |
++----------------------------------------------------------+
+                      | HTTPS + Bearer IdToken (JWT Cognito)
+                      v
++----------------------------------------------------------+
+|         Amazon API Gateway  (REST API -- stage: prod)    |
+|    Cognito Authorizer -- valide chaque requete JWT       |
++-----+----------+----------+-----------+-----------------+
+      |          |          |           |
+      v          v          v           v          v
+  Lambda     Lambda     Lambda      Lambda     Lambda
+  Create     Get        GetById     Update     Presigned
+  Expense    Expenses              Status      Url (S3)
+      |          |          |           |           |
+      +----------+----------+-----------+           |
+                 |                                  |
+                 v                                  v
+          Amazon DynamoDB                      Amazon S3
+      (expense-tracker-expenses)          (receipts -- prive)
+      PK=USER#id / SK=EXPENSE#ulid
+      GSI: StatusIndex, CategoryIndex
+
+            Amazon Cognito
+        UserPool + groupes JWT
+        (employees / finance)
+</div>
+
+<table class="t">
+  <tr><th>Service</th><th>R&ocirc;le</th><th>Justification</th></tr>
+  <tr><td><strong>.NET MAUI</strong></td><td>Interface Windows. Deux vues selon le r&ocirc;le authentifi&eacute;.</td><td>Technologie impos&eacute;e. Base de code unique pour multi-plateforme.</td></tr>
+  <tr><td><strong>Amazon Cognito</strong></td><td>Authentification, groupes <code>employees</code>/<code>finance</code>, &eacute;mission JWT.</td><td>&Eacute;vite un serveur d&apos;auth. Les claims JWT servent directement au RBAC Lambda.</td></tr>
+  <tr><td><strong>API Gateway</strong></td><td>Point d&apos;entr&eacute;e REST avec authorizer Cognito int&eacute;gr&eacute;.</td><td>Validation centralis&eacute;e. D&eacute;couplage app mobile / logique m&eacute;tier.</td></tr>
+  <tr><td><strong>AWS Lambda</strong></td><td>5 fonctions .NET 8 : cr&eacute;ation, lecture, machine &agrave; &eacute;tats + RBAC, URLs pr&eacute;-sign&eacute;es.</td><td>Serverless. Pas d&apos;infrastructure &agrave; g&eacute;rer. Scaling automatique.</td></tr>
+  <tr><td><strong>Amazon DynamoDB</strong></td><td>Stockage des notes de frais. PK/SK + 2 GSI.</td><td>Latence &lt;10ms, sch&eacute;ma flexible, facturation &agrave; la requ&ecirc;te.</td></tr>
+  <tr><td><strong>Amazon S3</strong></td><td>Justificatifs. Acc&egrave;s uniquement via URLs pr&eacute;-sign&eacute;es.</td><td>Bucket 100% priv&eacute;. URLs temporaires (15min upload, 60min download).</td></tr>
+  <tr><td><strong>AWS IAM</strong></td><td>R&ocirc;le Lambda avec permissions minimales sur DynamoDB et S3.</td><td>Principe du moindre privil&egrave;ge. Aucun acc&egrave;s superflu.</td></tr>
+</table>
+
+<h2 class="pb">3. Mod&egrave;le de donn&eacute;es DynamoDB</h2>
+
+<h3>Table principale : <code>expense-tracker-expenses</code></h3>
+
+<table class="t">
+  <tr><th>Attribut</th><th>Type</th><th>Description</th></tr>
+  <tr><td><strong>PK</strong> (partition key)</td><td>String</td><td><code>USER#&lt;userId&gt;</code> &mdash; sub Cognito de l&apos;employ&eacute;</td></tr>
+  <tr><td><strong>SK</strong> (sort key)</td><td>String</td><td><code>EXPENSE#&lt;ulid&gt;</code> &mdash; ULID pour l&apos;ordre chronologique</td></tr>
+  <tr><td>ExpenseId</td><td>String</td><td>Identifiant unique (ULID)</td></tr>
+  <tr><td>UserId / UserEmail</td><td>String</td><td>Identit&eacute; de l&apos;employ&eacute;</td></tr>
+  <tr><td>Amount</td><td>Number</td><td>Montant en euros</td></tr>
+  <tr><td>Category</td><td>String</td><td>travel / meals / equipment / other</td></tr>
+  <tr><td><strong>Status</strong></td><td>String</td><td>Draft / Submitted / Approved / Rejected / Resubmitted</td></tr>
+  <tr><td>ReceiptKey</td><td>String</td><td>Cl&eacute; S3 du justificatif</td></tr>
+  <tr><td>ReviewerComment</td><td>String</td><td>Commentaire obligatoire en cas de rejet</td></tr>
+  <tr><td>CreatedAt / UpdatedAt</td><td>String</td><td>Timestamps ISO 8601</td></tr>
+</table>
+
+<h3>Index secondaires globaux (GSI)</h3>
+<table class="t">
+  <tr><th>GSI</th><th>PK</th><th>SK</th><th>Pattern d&apos;acc&egrave;s</th></tr>
+  <tr><td><strong>StatusIndex</strong></td><td>Status</td><td>CreatedAt</td><td>File de validation Finance : requ&ecirc;te sur Status = &quot;Submitted&quot; ou &quot;Resubmitted&quot;, tri&eacute;es par date</td></tr>
+  <tr><td><strong>CategoryIndex</strong></td><td>Category</td><td>CreatedAt</td><td>Reporting par cat&eacute;gorie de d&eacute;pense</td></tr>
+</table>
+
+<p>Le mod&egrave;le single-table avec <code>PK = USER#id</code> permet de r&eacute;cup&eacute;rer toutes les d&eacute;penses d&apos;un employ&eacute; par une seule requ&ecirc;te <code>Query</code> sans scan. Le <strong>StatusIndex</strong> est l&apos;index m&eacute;tier cl&eacute; : il retourne instantan&eacute;ment la file du service financier sans parcourir toute la table.</p>
+
+<h3>Machine &agrave; &eacute;tats</h3>
+<div class="diagram">
+  Draft --[submit]--> Submitted --[approve]--> Approved
+                          |
+                       [reject]
+                          |
+                          v
+                      Rejected --[resubmit]--> Resubmitted --[submit]--> Submitted
+</div>
+
+<h2>4. Impl&eacute;mentation des &eacute;l&eacute;ments cl&eacute;s</h2>
+
+<h3>4.1 RBAC &mdash; Contr&ocirc;le d&apos;acc&egrave;s bas&eacute; sur les r&ocirc;les (Lambda UpdateExpenseStatus)</h3>
+<p>Le JWT &eacute;mis par Cognito contient le claim <code>cognito:groups</code>. La Lambda extrait ces groupes et v&eacute;rifie le droit d&apos;action <strong>avant tout acc&egrave;s &agrave; la base de donn&eacute;es</strong> :</p>
+<pre>// Extraction des groupes depuis le JWT (inject&eacute; par API Gateway Cognito Authorizer)
+var groups = request.RequestContext.Authorizer.Claims["cognito:groups"]
+    .Split(',').Select(g => g.Trim()).ToList();
+var isFinance = groups.Contains("finance");
+
+// Actions r&eacute;serv&eacute;es au service financier (approve, reject)
+if (FinanceActions.Contains(action) &amp;&amp; !isFinance)
+    return Response(403, "Seul le service financier peut approuver ou rejeter.");
+
+// Actions r&eacute;serv&eacute;es au propri&eacute;taire (submit, resubmit)
+if (OwnerActions.Contains(action) &amp;&amp; item["UserId"].S != userId)
+    return Response(403, "Vous ne pouvez modifier que vos propres d&eacute;penses.");</pre>
+
+<h3>4.2 Machine &agrave; &eacute;tats server-side (Lambda UpdateExpenseStatus)</h3>
+<p>Toute tentative de transition invalide est rejet&eacute;e HTTP 409, quel que soit ce que le client demande. Un verrou optimiste DynamoDB pr&eacute;vient les conflits de concurrence :</p>
+<pre>private static readonly Dictionary&lt;(string, string), string&gt; ValidTransitions = new()
+{
+    { ("Draft",       "submit"),   "Submitted"   },
+    { ("Submitted",   "approve"),  "Approved"    },
+    { ("Submitted",   "reject"),   "Rejected"    },
+    { ("Rejected",    "resubmit"), "Resubmitted" },
+    { ("Resubmitted", "submit"),   "Submitted"   },
+};
+
+var currentStatus = item["Status"].S;
+if (!ValidTransitions.TryGetValue((currentStatus, action), out var newStatus))
+    return Response(409, $"Transition invalide : '{action}' depuis '{currentStatus}'.");
+
+// Verrou optimiste : &eacute;chec si le statut a chang&eacute; entre lecture et &eacute;criture
+await _dynamoDb.UpdateItemAsync(new UpdateItemRequest {
+    ConditionExpression = "#status = :currentStatus",
+    // ... mise &agrave; jour du statut
+});</pre>
+
+<h3>4.3 URLs pr&eacute;-sign&eacute;es S3 (Lambda GeneratePresignedUrl)</h3>
+<p>Le bucket S3 est enti&egrave;rement priv&eacute;. Lambda g&eacute;n&egrave;re des URLs temporaires via le SDK AWS :</p>
+<pre>// Upload : URL PUT valable 15 minutes
+var uploadUrl = await _s3.GetPreSignedURLAsync(new GetPreSignedUrlRequest {
+    BucketName  = _bucketName,
+    Key         = $"receipts/{userId}/{expenseId}/{fileName}",
+    Verb        = HttpVerb.PUT,
+    Expires     = DateTime.UtcNow.AddMinutes(15),
+    ContentType = "image/jpeg"
+});
+
+// Download : URL GET valable 60 minutes
+var downloadUrl = await _s3.GetPreSignedURLAsync(new GetPreSignedUrlRequest {
+    BucketName = _bucketName,
+    Key        = objectKey,
+    Verb       = HttpVerb.GET,
+    Expires    = DateTime.UtcNow.AddHours(1)
+});</pre>
+<p>La cl&eacute; S3 est enregistr&eacute;e dans DynamoDB (<code>ReceiptKey</code>) d&egrave;s la g&eacute;n&eacute;ration de l&apos;URL d&apos;upload, permettant &agrave; l&apos;application de savoir si un justificatif est attach&eacute;.</p>
+
+<h2 class="pb">5. Conclusion</h2>
+
+<h3>Difficult&eacute;s rencontr&eacute;es et solutions adopt&eacute;es</h3>
+<ul>
+  <li><strong>Compilation XAML sous Windows</strong> &mdash; Le compilateur XamlCompiler.exe &eacute;chouait silencieusement. Probl&egrave;me combin&eacute; : mauvais namespace XML dans <code>Platforms/Windows/App.xaml</code> (<code>2009/xaml</code> au lieu de <code>2006/xaml</code>) et propri&eacute;t&eacute; <code>WindowsPackageType=None</code> manquante. R&eacute;solution par comparaison avec un projet template <code>dotnet new maui</code>.</li>
+  <li><strong>Erreur 401 sur l&apos;API Gateway</strong> &mdash; L&apos;application envoyait l&apos;<code>AccessToken</code> Cognito. Or, le Cognito Authorizer valide l&apos;<code>IdToken</code> qui contient les claims utilisateur (email, groupes). Correction en une ligne dans <code>ExpenseService.cs</code>.</li>
+  <li><strong>File Finance incompl&egrave;te</strong> &mdash; La Lambda ne retournait que les d&eacute;penses <code>Submitted</code>, excluant les <code>Resubmitted</code>. Correction dans <code>FinanceViewModel</code> par deux appels fusionn&eacute;s.</li>
+  <li><strong>ImplicitUsings manquant dans les projets Lambda</strong> &mdash; Types <code>Task&lt;&gt;</code> et <code>Random</code> non r&eacute;solus. Ajout de <code>&lt;ImplicitUsings&gt;enable&lt;/ImplicitUsings&gt;</code> dans chaque <code>.csproj</code>.</li>
+</ul>
+
+<h3>Bilan fonctionnel</h3>
+<p>L&apos;application d&eacute;ploy&eacute;e sur AWS (eu-west-1) couvre l&apos;int&eacute;gralit&eacute; du workflow demand&eacute; : cr&eacute;ation de d&eacute;penses (Draft/Submitted), validation ou rejet avec commentaire obligatoire, resoumission apr&egrave;s rejet, upload de justificatifs via URL pr&eacute;-sign&eacute;e. La machine &agrave; &eacute;tats est strictement enforced c&ocirc;t&eacute; serveur. Le RBAC est appliqu&eacute; d&egrave;s l&apos;entr&eacute;e dans chaque Lambda, avant tout acc&egrave;s &agrave; DynamoDB.</p>
+
+<h3>Am&eacute;liorations possibles</h3>
+<ul>
+  <li><strong>Notifications email</strong> &mdash; Int&eacute;grer Amazon SES pour notifier l&apos;employ&eacute; lors d&apos;une approbation ou d&apos;un rejet.</li>
+  <li><strong>Seuil de double validation</strong> &mdash; Exiger deux approbations pour les montants sup&eacute;rieurs &agrave; 500&euro;, r&egrave;gle configurable dans Lambda.</li>
+  <li><strong>Dashboard analytique</strong> &mdash; Exploiter le GSI CategoryIndex et Amazon QuickSight pour des rapports de d&eacute;penses par cat&eacute;gorie et p&eacute;riode.</li>
+  <li><strong>Mobile iOS/Android</strong> &mdash; Le projet MAUI est structur&eacute; multi-plateforme ; seule la configuration de build manque.</li>
+</ul>
+
+<div style="text-align:center;margin-top:30px;font-size:9.5pt;color:#555;border-top:1px solid #ccc;padding-top:10px;">
+  Code source : <strong>https://github.com/oussamaa29/expense-tracker-aws</strong>
+</div>
+
+</body>
+</html>

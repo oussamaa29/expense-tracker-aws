@@ -79,7 +79,8 @@
         <RefreshView Grid.Row="2"
                      Command="{Binding LoadExpensesCommand}"
                      IsRefreshing="{Binding IsBusy}">
-            <CollectionView ItemsSource="{Binding Expenses}"
+            <CollectionView x:Name="ExpensesList"
+                            ItemsSource="{Binding Expenses}"
                             EmptyView="Aucune dépense. Appuyez sur + pour en créer une."
                             SelectionMode="Single"
                             SelectionChangedCommand="{Binding OpenDetailCommand}"
