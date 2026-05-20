@@ -58,13 +58,11 @@ public partial class ExpenseDetailPage : ContentPage
     private void PopulateUI(ExpenseReport expense)
     {
         AmountLabel.Text      = expense.FormattedAmount;
-        CategoryLabel.Text    = expense.Category.Length > 0
-            ? char.ToUpper(expense.Category[0]) + expense.Category[1..]
-            : expense.Category;
+        CategoryLabel.Text    = expense.CategoryLabel;
         DescriptionLabel.Text = expense.Description;
         DateLabel.Text        = expense.FormattedDate;
         EmployeeLabel.Text    = expense.EmployeeId;
-        StatusLabel.Text      = expense.Status;
+        StatusLabel.Text      = expense.StatusLabel;
         StatusBadge.BackgroundColor = expense.StatusColor;
 
         bool isEmployee = AuthService.UserRole == "employee";
@@ -145,9 +143,15 @@ public partial class ExpenseDetailPage : ContentPage
         if (_expense == null) return;
         try
         {
-            var result = await MediaPicker.PickPhotoAsync(new MediaPickerOptions
+            var result = await FilePicker.Default.PickAsync(new PickOptions
             {
-                Title = "Choisir un reçu"
+                PickerTitle = "Choisir un justificatif",
+                FileTypes = new FilePickerFileType(new Dictionary<DevicePlatform, IEnumerable<string>>
+                {
+                    { DevicePlatform.WinUI,    new[] { ".jpg", ".jpeg", ".png", ".pdf", ".heic" } },
+                    { DevicePlatform.iOS,      new[] { "public.image", "com.adobe.pdf" } },
+                    { DevicePlatform.Android,  new[] { "image/*", "application/pdf" } }
+                })
             });
             if (result == null) return;
 
@@ -155,14 +159,17 @@ public partial class ExpenseDetailPage : ContentPage
             ReceiptLoading.IsRunning = true;
             UploadReceiptButton.IsEnabled = false;
 
-            var stream    = await result.OpenReadAsync();
+            var stream      = await result.OpenReadAsync();
+            var contentType = result.FileName.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)
+                ? "application/pdf" : "image/jpeg";
+
             var presigned = await _receiptService.GetUploadUrlAsync(_expense.ExpenseId, result.FileName);
             if (presigned == null) throw new Exception("Impossible d'obtenir l'URL d'upload.");
 
-            var success = await _receiptService.UploadFileAsync(presigned.Url, stream, "image/jpeg");
+            var success = await _receiptService.UploadFileAsync(presigned.Url, stream, contentType);
             if (!success) throw new Exception("L'upload a échoué.");
 
-            await DisplayAlert("Succès", "Reçu uploadé avec succès.", "OK");
+            await DisplayAlert("Succès", "Justificatif uploadé avec succès.", "OK");
             UploadReceiptButton.IsVisible = false;
             NoReceiptLabel.IsVisible = false;
             await LoadExpenseAsync();

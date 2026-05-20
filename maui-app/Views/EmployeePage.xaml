@@ -5,7 +5,8 @@
              xmlns:models="clr-namespace:ExpenseTracker.Models"
              x:Class="ExpenseTracker.Views.EmployeePage"
              x:DataType="vm:EmployeeViewModel"
-             Title="Mes Dépenses">
+             Title="Mes Dépenses"
+             BackgroundColor="#0F0F1A">
 
     <ContentPage.BindingContext>
         <vm:EmployeeViewModel />
@@ -18,64 +19,150 @@
 
     <Grid RowDefinitions="Auto,Auto,*">
 
-        <!-- Error Banner -->
+        <!-- Bandeau d'erreur -->
         <Label Grid.Row="0"
                Text="{Binding ErrorMessage}"
-               BackgroundColor="#FFEBEE"
-               TextColor="#F44336"
+               BackgroundColor="#3E1010"
+               TextColor="#FF6B6B"
                Padding="12"
                IsVisible="{Binding ErrorMessage, Converter={StaticResource StringNotEmptyConverter}}" />
 
-        <!-- Create Form -->
+        <!-- Formulaire de création -->
         <Border Grid.Row="1"
-                BackgroundColor="White"
-                StrokeShape="RoundRectangle 0,0,12,12"
-                Stroke="#E0E0E0"
-                Padding="16"
-                Margin="12,0,12,8"
+                BackgroundColor="#1A1A2E"
+                StrokeShape="RoundRectangle 14"
+                Stroke="#2E2E50"
+                Padding="20"
+                Margin="12,8,12,4"
                 IsVisible="{Binding IsCreating}">
-            <VerticalStackLayout Spacing="10">
-                <Label Text="Nouvelle dépense" FontSize="16" FontAttributes="Bold" TextColor="#212121" />
+            <VerticalStackLayout Spacing="14">
 
-                <Entry Placeholder="Montant (ex: 45.00)"
-                       Text="{Binding NewAmount}"
-                       Keyboard="Numeric"
-                       BackgroundColor="#F5F5F5" />
+                <Label Text="Nouvelle dépense"
+                       FontSize="17"
+                       FontAttributes="Bold"
+                       TextColor="White" />
 
-                <Picker Title="Catégorie"
-                        ItemsSource="{Binding Categories}"
-                        SelectedItem="{Binding NewCategory}"
-                        BackgroundColor="#F5F5F5" />
+                <BoxView HeightRequest="1" BackgroundColor="#2E2E50" />
 
-                <Editor Placeholder="Description..."
-                        Text="{Binding NewDescription}"
-                        HeightRequest="80"
-                        BackgroundColor="#F5F5F5" />
+                <!-- Montant -->
+                <VerticalStackLayout Spacing="5">
+                    <Label Text="Montant (€)" FontSize="13" TextColor="#9E9EBF" />
+                    <Border BackgroundColor="#252540"
+                            StrokeShape="RoundRectangle 8"
+                            Stroke="#3A3A5C"
+                            Padding="12,0">
+                        <Entry Text="{Binding NewAmount}"
+                               Keyboard="Numeric"
+                               Placeholder="ex : 45.00"
+                               PlaceholderColor="#5E5E7F"
+                               TextColor="White"
+                               BackgroundColor="Transparent" />
+                    </Border>
+                </VerticalStackLayout>
 
-                <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
+                <!-- Catégorie -->
+                <VerticalStackLayout Spacing="5">
+                    <Label Text="Catégorie" FontSize="13" TextColor="#9E9EBF" />
+                    <Border BackgroundColor="#252540"
+                            StrokeShape="RoundRectangle 8"
+                            Stroke="#3A3A5C"
+                            Padding="12,0">
+                        <Picker ItemsSource="{Binding Categories}"
+                                SelectedItem="{Binding NewCategory}"
+                                TextColor="White"
+                                TitleColor="#5E5E7F"
+                                BackgroundColor="Transparent" />
+                    </Border>
+                </VerticalStackLayout>
+
+                <!-- Description -->
+                <VerticalStackLayout Spacing="5">
+                    <Label Text="Description" FontSize="13" TextColor="#9E9EBF" />
+                    <Border BackgroundColor="#252540"
+                            StrokeShape="RoundRectangle 8"
+                            Stroke="#3A3A5C"
+                            Padding="12,8">
+                        <Editor Text="{Binding NewDescription}"
+                                Placeholder="Décrivez la dépense..."
+                                PlaceholderColor="#5E5E7F"
+                                TextColor="White"
+                                BackgroundColor="Transparent"
+                                HeightRequest="80"
+                                AutoSize="TextChanges" />
+                    </Border>
+                </VerticalStackLayout>
+
+                <!-- Justificatif -->
+                <VerticalStackLayout Spacing="5">
+                    <Label Text="Justificatif (facultatif)" FontSize="13" TextColor="#9E9EBF" />
+                    <Border BackgroundColor="#252540"
+                            StrokeShape="RoundRectangle 8"
+                            Stroke="#3A3A5C"
+                            Padding="12,10">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <Label Grid.Column="0"
+                                   Text="{Binding ReceiptFileName}"
+                                   TextColor="White"
+                                   FontSize="13"
+                                   VerticalOptions="Center">
+                                <Label.Triggers>
+                                    <DataTrigger TargetType="Label"
+                                                 Binding="{Binding ReceiptFileName}"
+                                                 Value="">
+                                        <Setter Property="Text" Value="Aucun fichier sélectionné" />
+                                        <Setter Property="TextColor" Value="#5E5E7F" />
+                                    </DataTrigger>
+                                </Label.Triggers>
+                            </Label>
+                            <Button Grid.Column="1"
+                                    Text="📎 Parcourir"
+                                    Command="{Binding PickReceiptCommand}"
+                                    BackgroundColor="#3A3A5C"
+                                    TextColor="#4FC3F7"
+                                    CornerRadius="6"
+                                    FontSize="12"
+                                    HeightRequest="34"
+                                    Padding="10,0" />
+                        </Grid>
+                    </Border>
+                </VerticalStackLayout>
+
+                <!-- Erreur formulaire -->
+                <Label Text="{Binding ErrorMessage}"
+                       TextColor="#FF6B6B"
+                       FontSize="12"
+                       IsVisible="{Binding ErrorMessage, Converter={StaticResource StringNotEmptyConverter}}" />
+
+                <!-- Boutons -->
+                <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8" Margin="0,4,0,0">
                     <Button Grid.Column="0"
                             Text="Brouillon"
                             Command="{Binding SaveDraftCommand}"
-                            BackgroundColor="#9E9E9E"
+                            BackgroundColor="#3A3A5C"
                             TextColor="White"
-                            CornerRadius="6" />
+                            CornerRadius="8"
+                            FontSize="13" />
                     <Button Grid.Column="1"
                             Text="Soumettre"
                             Command="{Binding SubmitExpenseCommand}"
                             BackgroundColor="#2196F3"
                             TextColor="White"
-                            CornerRadius="6" />
+                            CornerRadius="8"
+                            FontSize="13"
+                            FontAttributes="Bold" />
                     <Button Grid.Column="2"
                             Text="Annuler"
                             Command="{Binding CancelCreateCommand}"
-                            BackgroundColor="#E0E0E0"
-                            TextColor="#424242"
-                            CornerRadius="6" />
+                            BackgroundColor="Transparent"
+                            TextColor="#6E6E8F"
+                            CornerRadius="8"
+                            FontSize="13" />
                 </Grid>
+
             </VerticalStackLayout>
         </Border>
 
-        <!-- Expenses List -->
+        <!-- Liste des dépenses -->
         <RefreshView Grid.Row="2"
                      Command="{Binding LoadExpensesCommand}"
                      IsRefreshing="{Binding IsBusy}">
@@ -87,49 +174,77 @@
                             SelectionChangedCommandParameter="{Binding SelectedItem, Source={RelativeSource Self}}">
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="models:ExpenseReport">
-                        <Border Margin="12,4"
-                                BackgroundColor="White"
-                                StrokeShape="RoundRectangle 10"
-                                Stroke="#E0E0E0"
-                                Padding="14">
-                            <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto">
+                        <Border Margin="12,5"
+                                BackgroundColor="#1A1A2E"
+                                StrokeShape="RoundRectangle 12"
+                                Stroke="#2E2E50"
+                                Padding="16,14">
+                            <VerticalStackLayout Spacing="6">
 
-                                <!-- Category & Amount -->
-                                <Label Grid.Row="0" Grid.Column="0"
-                                       Text="{Binding Category}"
-                                       FontAttributes="Bold"
-                                       FontSize="15"
-                                       TextColor="#212121"
-                                       />
-                                <Label Grid.Row="0" Grid.Column="1"
-                                       Text="{Binding FormattedAmount}"
-                                       FontAttributes="Bold"
-                                       FontSize="16"
-                                       TextColor="#212121" />
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <!-- Catégorie & Montant -->
+                                    <Label Grid.Column="0"
+                                           Text="{Binding CategoryLabel}"
+                                           FontAttributes="Bold"
+                                           FontSize="15"
+                                           TextColor="White" />
+                                    <Label Grid.Column="1"
+                                           Text="{Binding FormattedAmount}"
+                                           FontAttributes="Bold"
+                                           FontSize="16"
+                                           TextColor="#4FC3F7" />
+                                </Grid>
 
                                 <!-- Description -->
-                                <Label Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
-                                       Text="{Binding Description}"
+                                <Label Text="{Binding Description}"
                                        FontSize="13"
-                                       TextColor="#757575"
+                                       TextColor="#9E9EBF"
                                        LineBreakMode="TailTruncation" />
 
-                                <!-- Date & Status -->
-                                <Label Grid.Row="2" Grid.Column="0"
-                                       Text="{Binding FormattedDate}"
-                                       FontSize="12"
-                                       TextColor="#9E9E9E" />
-                                <Border Grid.Row="2" Grid.Column="1"
-                                        BackgroundColor="{Binding StatusColor}"
-                                        StrokeShape="RoundRectangle 10"
-                                        Padding="8,2">
-                                    <Label Text="{Binding Status}"
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <!-- Date & Statut -->
+                                    <Label Grid.Column="0"
+                                           Text="{Binding FormattedDate}"
                                            FontSize="11"
-                                           TextColor="White"
-                                           FontAttributes="Bold" />
-                                </Border>
+                                           TextColor="#6E6E8F"
+                                           VerticalOptions="Center" />
+                                    <Border Grid.Column="1"
+                                            BackgroundColor="{Binding StatusColor}"
+                                            StrokeShape="RoundRectangle 10"
+                                            Stroke="Transparent"
+                                            Padding="10,3">
+                                        <Label Text="{Binding StatusLabel}"
+                                               FontSize="11"
+                                               TextColor="White"
+                                               FontAttributes="Bold" />
+                                    </Border>
+                                </Grid>
 
-                            </Grid>
+                                <!-- Bouton justificatif (visible uniquement si pas encore de reçu) -->
+                                <Button Text="📎 Joindre un justificatif"
+                                        BackgroundColor="#1E2D3D"
+                                        TextColor="#4FC3F7"
+                                        CornerRadius="8"
+                                        FontSize="12"
+                                        HeightRequest="36"
+                                        IsVisible="{Binding HasReceipt, Converter={StaticResource InverseBoolConverter}}"
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:EmployeeViewModel}}, Path=UploadReceiptCommand}"
+                                        CommandParameter="{Binding .}" />
+
+                                <!-- Indicateur reçu déjà joint -->
+                                <HorizontalStackLayout Spacing="6"
+                                                       IsVisible="{Binding HasReceipt}">
+                                    <Label Text="✓"
+                                           FontSize="12"
+                                           TextColor="#4CAF50"
+                                           VerticalOptions="Center" />
+                                    <Label Text="Justificatif joint"
+                                           FontSize="12"
+                                           TextColor="#4CAF50"
+                                           VerticalOptions="Center" />
+                                </HorizontalStackLayout>
+
+                            </VerticalStackLayout>
                         </Border>
                     </DataTemplate>
                 </CollectionView.ItemTemplate>

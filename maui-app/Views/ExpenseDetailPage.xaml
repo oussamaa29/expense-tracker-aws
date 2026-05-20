@@ -93,7 +93,7 @@
 
                     <!-- Upload Button -->
                     <Button x:Name="UploadReceiptButton"
-                            Text="Ajouter un reçu"
+                            Text="📎 Joindre un justificatif"
                             BackgroundColor="#2196F3"
                             TextColor="White"
                             CornerRadius="8"

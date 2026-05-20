@@ -3,12 +3,25 @@ using CommunityToolkit.Mvvm.Input;
 using ExpenseTracker.Models;
 using ExpenseTracker.Services;
 using System.Collections.ObjectModel;
+using Microsoft.Maui.Storage;
 
 namespace ExpenseTracker.ViewModels;
 
 public partial class EmployeeViewModel : ObservableObject
 {
     private readonly ExpenseService _expenseService = new();
+    private readonly ReceiptService _receiptService = new();
+
+    private FileResult? _pendingReceipt;
+
+    // Mapping affichage français → valeur API anglais
+    private static readonly Dictionary<string, string> _categoryMap = new()
+    {
+        { "Voyage",     "travel"    },
+        { "Repas",      "meals"     },
+        { "Équipement", "equipment" },
+        { "Autre",      "other"     }
+    };
 
     [ObservableProperty]
     private ObservableCollection<ExpenseReport> expenses = new();
@@ -19,20 +32,22 @@ public partial class EmployeeViewModel : ObservableObject
     [ObservableProperty]
     private bool isCreating;
 
-    // New expense form fields
     [ObservableProperty]
     private string newAmount = string.Empty;
 
     [ObservableProperty]
-    private string newCategory = "meals";
+    private string newCategory = "Repas";
 
     [ObservableProperty]
     private string newDescription = string.Empty;
 
     [ObservableProperty]
+    private string receiptFileName = string.Empty;
+
+    [ObservableProperty]
     private string errorMessage = string.Empty;
 
-    public List<string> Categories { get; } = new() { "travel", "meals", "equipment", "other" };
+    public List<string> Categories { get; } = new() { "Voyage", "Repas", "Équipement", "Autre" };
 
     [RelayCommand]
     public async Task LoadExpensesAsync()
@@ -68,6 +83,24 @@ public partial class EmployeeViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private async Task PickReceiptAsync()
+    {
+        var picked = await FilePicker.Default.PickAsync(new PickOptions
+        {
+            PickerTitle = "Choisir un justificatif",
+            FileTypes = new FilePickerFileType(new Dictionary<DevicePlatform, IEnumerable<string>>
+            {
+                { DevicePlatform.WinUI,   new[] { ".jpg", ".jpeg", ".png", ".pdf" } },
+                { DevicePlatform.iOS,     new[] { "public.image", "com.adobe.pdf" } },
+                { DevicePlatform.Android, new[] { "image/*", "application/pdf" } }
+            })
+        });
+        if (picked == null) return;
+        _pendingReceipt  = picked;
+        ReceiptFileName  = picked.FileName;
+    }
+
+    [RelayCommand]
     private async Task SubmitExpenseAsync()
         => await CreateAsync("Submitted");
 
@@ -77,7 +110,8 @@ public partial class EmployeeViewModel : ObservableObject
 
     private async Task CreateAsync(string status)
     {
-        if (!decimal.TryParse(NewAmount, out var amount) || amount <= 0)
+        if (!decimal.TryParse(NewAmount, System.Globalization.NumberStyles.Any,
+                System.Globalization.CultureInfo.InvariantCulture, out var amount) || amount <= 0)
         {
             ErrorMessage = "Montant invalide.";
             return;
@@ -92,17 +126,71 @@ public partial class EmployeeViewModel : ObservableObject
         ErrorMessage = string.Empty;
         try
         {
-            var created = await _expenseService.CreateExpenseAsync(amount, NewCategory, NewDescription, status);
-            if (created != null)
+            var apiCategory = _categoryMap.TryGetValue(NewCategory, out var eng) ? eng : NewCategory;
+            var created = await _expenseService.CreateExpenseAsync(amount, apiCategory, NewDescription, status);
+            if (created == null) return;
+
+            // Upload justificatif si sélectionné
+            if (_pendingReceipt != null)
             {
-                Expenses.Insert(0, created);
-                IsCreating = false;
-                ResetForm();
+                var stream      = await _pendingReceipt.OpenReadAsync();
+                var contentType = _pendingReceipt.FileName.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)
+                    ? "application/pdf" : "image/jpeg";
+                var presigned = await _receiptService.GetUploadUrlAsync(created.ExpenseId, _pendingReceipt.FileName);
+                if (presigned != null)
+                    await _receiptService.UploadFileAsync(presigned.Url, stream, contentType);
             }
+
+            Expenses.Insert(0, created);
+            IsCreating = false;
+            ResetForm();
         }
         catch (Exception ex)
         {
             ErrorMessage = $"Erreur lors de la création : {ex.Message}";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task UploadReceiptAsync(ExpenseReport expense)
+    {
+        try
+        {
+            var picked = await FilePicker.Default.PickAsync(new PickOptions
+            {
+                PickerTitle = "Choisir un justificatif",
+                FileTypes = new FilePickerFileType(new Dictionary<DevicePlatform, IEnumerable<string>>
+                {
+                    { DevicePlatform.WinUI,   new[] { ".jpg", ".jpeg", ".png", ".pdf" } },
+                    { DevicePlatform.iOS,     new[] { "public.image", "com.adobe.pdf" } },
+                    { DevicePlatform.Android, new[] { "image/*", "application/pdf" } }
+                })
+            });
+            if (picked == null) return;
+
+            IsBusy = true;
+            ErrorMessage = string.Empty;
+
+            var stream      = await picked.OpenReadAsync();
+            var contentType = picked.FileName.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)
+                ? "application/pdf" : "image/jpeg";
+
+            var presigned = await _receiptService.GetUploadUrlAsync(expense.ExpenseId, picked.FileName);
+            if (presigned == null) throw new Exception("Impossible d'obtenir l'URL d'upload.");
+
+            var success = await _receiptService.UploadFileAsync(presigned.Url, stream, contentType);
+            if (!success) throw new Exception("L'upload a échoué.");
+
+            await Shell.Current.DisplayAlert("Succès", "Justificatif envoyé avec succès.", "OK");
+            await LoadExpensesAsync();
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Erreur upload : {ex.Message}";
         }
         finally
         {
@@ -138,9 +226,11 @@ public partial class EmployeeViewModel : ObservableObject
 
     private void ResetForm()
     {
-        NewAmount      = string.Empty;
-        NewCategory    = "meals";
-        NewDescription = string.Empty;
-        ErrorMessage   = string.Empty;
+        NewAmount       = string.Empty;
+        NewCategory     = "Repas";
+        NewDescription  = string.Empty;
+        ReceiptFileName = string.Empty;
+        ErrorMessage    = string.Empty;
+        _pendingReceipt = null;
     }
 }
