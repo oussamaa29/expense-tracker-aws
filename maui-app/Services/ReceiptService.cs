@@ -13,7 +13,7 @@ public class ReceiptService
     private void SetAuthHeader()
     {
         _http.DefaultRequestHeaders.Authorization =
-            new AuthenticationHeaderValue("Bearer", AuthService.AccessToken);
+            new AuthenticationHeaderValue("Bearer", AuthService.IdToken);
     }
 
     public async Task<PresignedUrlResponse?> GetUploadUrlAsync(string expenseId, string fileName)
