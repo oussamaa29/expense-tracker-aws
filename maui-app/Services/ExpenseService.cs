@@ -38,7 +38,7 @@ public class ExpenseService
     public async Task<ExpenseReport?> CreateExpenseAsync(decimal amount, string category, string description, string status)
     {
         SetAuthHeader();
-        var payload = JsonSerializer.Serialize(new { amount, category, description, status });
+        var payload = JsonSerializer.Serialize(new { Amount = amount, Category = category, Description = description, Status = status });
         var content = new StringContent(payload, Encoding.UTF8, "application/json");
         var response = await _http.PostAsync($"{ApiConfig.ApiBaseUrl}/expenses", content);
         response.EnsureSuccessStatusCode();
@@ -51,8 +51,8 @@ public class ExpenseService
     {
         SetAuthHeader();
         object payload = comment != null
-            ? new { action, comment }
-            : new { action };
+            ? new { Action = action, Comment = comment }
+            : new { Action = action };
         var json    = JsonSerializer.Serialize(payload);
         var request = new HttpRequestMessage(HttpMethod.Patch, $"{ApiConfig.ApiBaseUrl}/expenses/{expenseId}")
         {
