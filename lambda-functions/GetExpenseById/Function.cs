@@ -67,8 +67,7 @@ namespace GetExpenseById
                         ExpressionAttributeValues = new Dictionary<string, AttributeValue>
                         {
                             [":eid"] = new AttributeValue(expenseId)
-                        },
-                        Limit = 1
+                        }
                     };
                     var result = await _dynamoDb.ScanAsync(scanRequest);
                     item = result.Items.FirstOrDefault();

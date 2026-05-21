@@ -28,7 +28,8 @@ namespace UpdateExpenseStatus
             { ("Submitted", "approve"), "Approved" },
             { ("Submitted", "reject"), "Rejected" },
             { ("Rejected", "resubmit"), "Resubmitted" },
-            { ("Resubmitted", "submit"), "Submitted" },
+            { ("Resubmitted", "approve"), "Approved" },
+            { ("Resubmitted", "reject"), "Rejected" },
         };
 
         // Actions only finance managers can perform
@@ -113,8 +114,7 @@ namespace UpdateExpenseStatus
                         ExpressionAttributeValues = new Dictionary<string, AttributeValue>
                         {
                             [":eid"] = new AttributeValue(expenseId)
-                        },
-                        Limit = 1
+                        }
                     });
                     item = scanResult.Items.FirstOrDefault();
                 }
