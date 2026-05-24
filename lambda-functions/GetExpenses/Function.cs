@@ -1,10 +1,3 @@
-// ============================================================
-// GetExpenses/Function.cs
-// GET /expenses
-// Employee: returns own expenses | Finance: returns all Submitted
-// Query params: ?status=Submitted (optional, finance only)
-// ============================================================
-
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 using Amazon.Lambda.APIGatewayEvents;
@@ -39,7 +32,6 @@ namespace GetExpenses
 
                 if (isFinance)
                 {
-                    // Finance manager: query StatusIndex for Submitted expenses
                     var statusFilter = request.QueryStringParameters?.ContainsKey("status") == true
                         ? request.QueryStringParameters["status"]
                         : "Submitted";
@@ -57,7 +49,7 @@ namespace GetExpenses
                         {
                             [":status"] = new AttributeValue(statusFilter)
                         },
-                        ScanIndexForward = false // newest first
+                        ScanIndexForward = false
                     };
 
                     var result = await _dynamoDb.QueryAsync(queryRequest);
@@ -65,14 +57,13 @@ namespace GetExpenses
                 }
                 else
                 {
-                    // Employee: query own expenses using PK
                     var queryRequest = new QueryRequest
                     {
                         TableName = _tableName,
                         KeyConditionExpression = "PK = :pk AND begins_with(SK, :skPrefix)",
                         ExpressionAttributeValues = new Dictionary<string, AttributeValue>
                         {
-                            [":pk"] = new AttributeValue($"USER#{userId}"),
+                            [":pk"]       = new AttributeValue($"USER#{userId}"),
                             [":skPrefix"] = new AttributeValue("EXPENSE#")
                         },
                         ScanIndexForward = false
@@ -82,23 +73,20 @@ namespace GetExpenses
                     items = result.Items;
                 }
 
-                // Map DynamoDB items to response objects
                 var expenses = items.Select(item => new
                 {
-                    expenseId = item.GetValueOrDefault("ExpenseId")?.S,
-                    userId = item.GetValueOrDefault("UserId")?.S,
-                    userEmail = item.GetValueOrDefault("UserEmail")?.S,
-                    amount = decimal.TryParse(item.GetValueOrDefault("Amount")?.N, out var a) ? a : 0,
-                    category = item.GetValueOrDefault("Category")?.S,
-                    description = item.GetValueOrDefault("Description")?.S,
-                    status = item.GetValueOrDefault("Status")?.S,
-                    receiptKey = item.GetValueOrDefault("ReceiptKey")?.S,
+                    expenseId       = item.GetValueOrDefault("ExpenseId")?.S,
+                    userId          = item.GetValueOrDefault("UserId")?.S,
+                    userEmail       = item.GetValueOrDefault("UserEmail")?.S,
+                    amount          = decimal.TryParse(item.GetValueOrDefault("Amount")?.N, out var a) ? a : 0,
+                    category        = item.GetValueOrDefault("Category")?.S,
+                    description     = item.GetValueOrDefault("Description")?.S,
+                    status          = item.GetValueOrDefault("Status")?.S,
+                    receiptKey      = item.GetValueOrDefault("ReceiptKey")?.S,
                     reviewerComment = item.GetValueOrDefault("ReviewerComment")?.S,
-                    createdAt = item.GetValueOrDefault("CreatedAt")?.S,
-                    updatedAt = item.GetValueOrDefault("UpdatedAt")?.S,
+                    createdAt       = item.GetValueOrDefault("CreatedAt")?.S,
+                    updatedAt       = item.GetValueOrDefault("UpdatedAt")?.S,
                 }).ToList();
-
-                context.Logger.LogInformation($"Returned {expenses.Count} expenses for user {userId} (finance={isFinance})");
 
                 return new APIGatewayProxyResponse
                 {
