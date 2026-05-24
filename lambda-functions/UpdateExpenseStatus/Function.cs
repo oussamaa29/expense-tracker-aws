@@ -1,10 +1,3 @@
-// ============================================================
-// UpdateExpenseStatus/Function.cs
-// PATCH /expenses/{expenseId}
-// Server-side state machine with RBAC enforcement
-// Body: { "action": "approve|reject|submit|resubmit", "comment": "..." }
-// ============================================================
-
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 using Amazon.Lambda.APIGatewayEvents;
@@ -20,23 +13,18 @@ namespace UpdateExpenseStatus
         private readonly AmazonDynamoDBClient _dynamoDb;
         private readonly string _tableName;
 
-        // ── State Machine Definition ──
-        // Maps (currentStatus, action) → newStatus
         private static readonly Dictionary<(string, string), string> ValidTransitions = new()
         {
-            { ("Draft", "submit"), "Submitted" },
-            { ("Submitted", "approve"), "Approved" },
-            { ("Submitted", "reject"), "Rejected" },
-            { ("Rejected", "resubmit"), "Resubmitted" },
-            { ("Resubmitted", "approve"), "Approved" },
-            { ("Resubmitted", "reject"), "Rejected" },
+            { ("Draft",        "submit"),   "Submitted"   },
+            { ("Submitted",    "approve"),  "Approved"    },
+            { ("Submitted",    "reject"),   "Rejected"    },
+            { ("Rejected",     "resubmit"), "Resubmitted" },
+            { ("Resubmitted",  "approve"),  "Approved"    },
+            { ("Resubmitted",  "reject"),   "Rejected"    },
         };
 
-        // Actions only finance managers can perform
         private static readonly HashSet<string> FinanceActions = new() { "approve", "reject" };
-
-        // Actions only the expense owner can perform
-        private static readonly HashSet<string> OwnerActions = new() { "submit", "resubmit" };
+        private static readonly HashSet<string> OwnerActions   = new() { "submit", "resubmit" };
 
         public Function()
         {
@@ -49,48 +37,33 @@ namespace UpdateExpenseStatus
         {
             try
             {
-                // 1. Extract user info from JWT
                 var userId = request.RequestContext.Authorizer.Claims["sub"];
                 var groups = request.RequestContext.Authorizer.Claims.ContainsKey("cognito:groups")
                     ? request.RequestContext.Authorizer.Claims["cognito:groups"].Split(',').Select(g => g.Trim()).ToList()
                     : new List<string>();
                 var isFinance = groups.Contains("finance");
 
-                // 2. Parse request
                 var expenseId = request.PathParameters["expenseId"];
                 var body = JsonSerializer.Deserialize<UpdateStatusBody>(request.Body);
                 if (body == null || string.IsNullOrEmpty(body.Action))
-                {
                     return Response(400, "Missing required field: action");
-                }
 
                 var action = body.Action.ToLower();
 
-                // 3. RBAC check — before even hitting the database
                 if (FinanceActions.Contains(action) && !isFinance)
-                {
                     return Response(403, "Only finance managers can approve or reject expenses.");
-                }
 
                 if (OwnerActions.Contains(action) && isFinance)
-                {
                     return Response(403, "Finance managers cannot submit or resubmit expenses.");
-                }
 
-                // 4. Require comment for reject
                 if (action == "reject" && string.IsNullOrWhiteSpace(body.Comment))
-                {
                     return Response(400, "A comment is required when rejecting an expense.");
-                }
 
-                // 5. Fetch current expense from DynamoDB
-                // For finance: we need to find the item regardless of owner
                 Dictionary<string, AttributeValue>? item = null;
                 string pk, sk;
 
                 if (!isFinance)
                 {
-                    // Employee: direct key lookup
                     pk = $"USER#{userId}";
                     sk = $"EXPENSE#{expenseId}";
                     var getResult = await _dynamoDb.GetItemAsync(new GetItemRequest
@@ -106,7 +79,6 @@ namespace UpdateExpenseStatus
                 }
                 else
                 {
-                    // Finance: scan by ExpenseId
                     var scanResult = await _dynamoDb.ScanAsync(new ScanRequest
                     {
                         TableName = _tableName,
@@ -120,41 +92,32 @@ namespace UpdateExpenseStatus
                 }
 
                 if (item == null)
-                {
                     return Response(404, "Expense not found.");
-                }
 
                 pk = item["PK"].S;
                 sk = item["SK"].S;
 
-                // 6. Ownership check for employee actions
                 if (OwnerActions.Contains(action))
                 {
                     var ownerId = item.GetValueOrDefault("UserId")?.S;
                     if (ownerId != userId)
-                    {
                         return Response(403, "You can only modify your own expenses.");
-                    }
                 }
 
-                // 7. State machine validation
                 var currentStatus = item.GetValueOrDefault("Status")?.S ?? "Draft";
                 if (!ValidTransitions.TryGetValue((currentStatus, action), out var newStatus))
-                {
                     return Response(409, $"Invalid transition: cannot '{action}' an expense with status '{currentStatus}'.");
-                }
 
-                // 8. Update DynamoDB
                 var now = DateTime.UtcNow.ToString("o");
                 var updateExpr = "SET #status = :newStatus, UpdatedAt = :now";
-                var exprNames = new Dictionary<string, string> { ["#status"] = "Status" };
+                var exprNames  = new Dictionary<string, string> { ["#status"] = "Status" };
                 var exprValues = new Dictionary<string, AttributeValue>
                 {
-                    [":newStatus"] = new AttributeValue(newStatus),
-                    [":now"] = new AttributeValue(now)
+                    [":newStatus"]     = new AttributeValue(newStatus),
+                    [":now"]           = new AttributeValue(now),
+                    [":currentStatus"] = new AttributeValue(currentStatus)
                 };
 
-                // Add reviewer info for approve/reject
                 if (action == "approve" || action == "reject")
                 {
                     updateExpr += ", ReviewerId = :reviewerId";
@@ -167,9 +130,6 @@ namespace UpdateExpenseStatus
                     }
                 }
 
-                // Add currentStatus for optimistic lock condition
-                exprValues[":currentStatus"] = new AttributeValue(currentStatus);
-
                 await _dynamoDb.UpdateItemAsync(new UpdateItemRequest
                 {
                     TableName = _tableName,
@@ -178,11 +138,10 @@ namespace UpdateExpenseStatus
                         ["PK"] = new AttributeValue(pk),
                         ["SK"] = new AttributeValue(sk)
                     },
-                    UpdateExpression = updateExpr,
-                    ExpressionAttributeNames = exprNames,
+                    UpdateExpression      = updateExpr,
+                    ExpressionAttributeNames  = exprNames,
                     ExpressionAttributeValues = exprValues,
-                    // Optimistic lock: ensure status hasn't changed between read and write
-                    ConditionExpression = "#status = :currentStatus",
+                    ConditionExpression   = "#status = :currentStatus",
                 });
 
                 context.Logger.LogInformation(

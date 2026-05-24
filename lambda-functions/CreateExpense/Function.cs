@@ -1,9 +1,3 @@
-// ============================================================
-// CreateExpense/Function.cs
-// POST /expenses
-// Creates a new expense report in DynamoDB
-// ============================================================
-
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 using Amazon.Lambda.APIGatewayEvents;
@@ -30,49 +24,37 @@ namespace CreateExpense
         {
             try
             {
-                // 1. Extract user info from JWT
                 var userId = request.RequestContext.Authorizer.Claims["sub"];
                 var userEmail = request.RequestContext.Authorizer.Claims["email"];
 
-                // 2. Parse request body
                 var body = JsonSerializer.Deserialize<CreateExpenseBody>(request.Body);
                 if (body == null || body.Amount <= 0 || string.IsNullOrEmpty(body.Category))
-                {
                     return Response(400, "Invalid request: amount must be > 0 and category is required.");
-                }
 
-                // 3. Validate category
                 var validCategories = new[] { "travel", "meals", "equipment", "other" };
                 if (!validCategories.Contains(body.Category.ToLower()))
-                {
                     return Response(400, $"Invalid category. Must be one of: {string.Join(", ", validCategories)}");
-                }
 
-                // 4. Validate initial status (only Draft or Submitted allowed)
                 var status = string.IsNullOrEmpty(body.Status) ? "Draft" : body.Status;
                 if (status != "Draft" && status != "Submitted")
-                {
                     return Response(400, "Initial status must be Draft or Submitted.");
-                }
 
-                // 5. Generate unique ID and timestamps
                 var expenseId = Ulid.NewUlid().ToString();
                 var now = DateTime.UtcNow.ToString("o");
 
-                // 6. Write to DynamoDB
                 var item = new Dictionary<string, AttributeValue>
                 {
-                    ["PK"] = new AttributeValue($"USER#{userId}"),
-                    ["SK"] = new AttributeValue($"EXPENSE#{expenseId}"),
-                    ["ExpenseId"] = new AttributeValue(expenseId),
-                    ["UserId"] = new AttributeValue(userId),
-                    ["UserEmail"] = new AttributeValue(userEmail),
-                    ["Amount"] = new AttributeValue { N = body.Amount.ToString("F2") },
-                    ["Category"] = new AttributeValue(body.Category.ToLower()),
+                    ["PK"]          = new AttributeValue($"USER#{userId}"),
+                    ["SK"]          = new AttributeValue($"EXPENSE#{expenseId}"),
+                    ["ExpenseId"]   = new AttributeValue(expenseId),
+                    ["UserId"]      = new AttributeValue(userId),
+                    ["UserEmail"]   = new AttributeValue(userEmail),
+                    ["Amount"]      = new AttributeValue { N = body.Amount.ToString("F2") },
+                    ["Category"]    = new AttributeValue(body.Category.ToLower()),
                     ["Description"] = new AttributeValue(body.Description ?? ""),
-                    ["Status"] = new AttributeValue(status),
-                    ["CreatedAt"] = new AttributeValue(now),
-                    ["UpdatedAt"] = new AttributeValue(now),
+                    ["Status"]      = new AttributeValue(status),
+                    ["CreatedAt"]   = new AttributeValue(now),
+                    ["UpdatedAt"]   = new AttributeValue(now),
                 };
 
                 await _dynamoDb.PutItemAsync(new PutItemRequest
@@ -81,9 +63,6 @@ namespace CreateExpense
                     Item = item
                 });
 
-                context.Logger.LogInformation($"Created expense {expenseId} for user {userId}");
-
-                // 7. Return created expense
                 return Response(201, new
                 {
                     expenseId,
@@ -126,7 +105,6 @@ namespace CreateExpense
         public string? Status { get; set; }
     }
 
-    // Simple ULID generator (no external dependency needed)
     public static class Ulid
     {
         private static readonly Random _random = new();
@@ -137,14 +115,12 @@ namespace CreateExpense
             var timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             var chars = new char[26];
 
-            // Encode 48-bit timestamp (10 chars)
             for (int i = 9; i >= 0; i--)
             {
                 chars[i] = _encoding[timestamp & 0x1F];
                 timestamp >>= 5;
             }
 
-            // Encode 80-bit randomness (16 chars)
             var bytes = new byte[10];
             _random.NextBytes(bytes);
             int bitIndex = 0;

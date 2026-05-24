@@ -1,7 +1,17 @@
-# Expense Report Tracker — Serverless AWS
+# Expense Report Tracker
 
 Module 5ENTAPP / E5WMD — Enterprise Software Engineering on AWS  
-Supervisor: Dr. Abdelhak TOUITI — Master Semester 2
+Superviseur : Dr. Abdelhak TOUITI — Master Semestre 2  
+Étudiant : Oussama CHAGHIL
+
+## Stack technique
+
+- **Frontend** : .NET MAUI (Windows)
+- **API** : Amazon API Gateway + Cognito (JWT)
+- **Backend** : AWS Lambda (.NET 8)
+- **Base de données** : Amazon DynamoDB
+- **Stockage** : Amazon S3 (reçus via pre-signed URLs)
+- **Auth** : Amazon Cognito (groupes : employees / finance)
 
 ## Architecture
 
@@ -9,24 +19,21 @@ Supervisor: Dr. Abdelhak TOUITI — Master Semester 2
 .NET MAUI (Windows)
         │
         ▼
-Amazon API Gateway  ←── Cognito Authorizer (JWT)
+Amazon API Gateway  ←── Cognito JWT Authorizer
         │
         ▼
 AWS Lambda (.NET 8)
    ├── CreateExpense
    ├── GetExpenses
    ├── GetExpenseById
-   ├── UpdateExpenseStatus  ← state machine + RBAC
+   ├── UpdateExpenseStatus
    └── GeneratePresignedUrl
         │
-        ├──▶ Amazon DynamoDB  (expense storage)
-        └──▶ Amazon S3        (receipts via pre-signed URLs)
-
-Amazon Cognito — groups: employees / finance
-AWS IAM        — least-privilege Lambda role
+        ├──▶ DynamoDB  (stockage des dépenses)
+        └──▶ S3        (reçus)
 ```
 
-## State Machine
+## Machine à états
 
 ```
 Draft ──► Submitted ──► Approved
@@ -35,54 +42,39 @@ Draft ──► Submitted ──► Approved
            Rejected ──► Resubmitted ──► Submitted
 ```
 
-Transitions enforced server-side in UpdateExpenseStatus Lambda.
+Les transitions sont vérifiées côté serveur (Lambda `UpdateExpenseStatus`).
 
-## DynamoDB Model
+## Prérequis
 
-| Attribute | Type | Description |
-|-----------|------|-------------|
-| PK | String | USER#<userId> |
-| SK | String | EXPENSE#<ulid> |
-| Status | String | Draft/Submitted/Approved/Rejected/Resubmitted |
-| Amount | Number | Expense amount |
-| Category | String | travel/meals/equipment/other |
+- .NET 9 SDK + workload MAUI : `dotnet workload install maui-windows`
+- AWS CLI configuré : `aws configure`
+- Lambda tools : `dotnet tool install -g Amazon.Lambda.Tools`
 
-GSIs: StatusIndex (Finance queue), CategoryIndex
-
-## Prerequisites
-
-- .NET 9 SDK + MAUI workload: `dotnet workload install maui-windows`
-- AWS CLI: `aws configure`
-- Lambda tools: `dotnet tool install -g Amazon.Lambda.Tools`
-
-## Deploy
+## Déploiement
 
 ```powershell
-# Package Lambdas (repeat for each function)
+# Packager chaque Lambda
 cd lambda-functions/CreateExpense
 dotnet lambda package --output-package ../../deploy/CreateExpense.zip
 
-# Upload & deploy
-aws s3 mb s3://expense-tracker-deploy-YOURNAME --region eu-west-1
-aws s3 cp deploy/ s3://expense-tracker-deploy-YOURNAME/ --recursive
-aws cloudformation deploy \
-  --template-file scripts/cloudformation.yaml \
-  --stack-name expense-tracker \
-  --parameter-overrides DeployBucket=expense-tracker-deploy-YOURNAME \
-  --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
+# Déployer via CloudFormation
+aws cloudformation deploy `
+  --template-file scripts/cloudformation.yaml `
+  --stack-name expense-tracker `
+  --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM `
   --region eu-west-1
 ```
 
-## Run
+## Lancement de l'application
 
 ```powershell
 cd maui-app
 dotnet run --framework net9.0-windows10.0.19041.0
 ```
 
-## Test accounts
+## Comptes de test
 
-| Role | Email | Password |
-|------|-------|----------|
-| Employee | employe@test.com | Employe@1234 |
+| Rôle | Email | Mot de passe |
+|------|-------|--------------|
+| Employé | employe@test.com | Employe@1234 |
 | Finance | finance@test.com | Finance@1234 |

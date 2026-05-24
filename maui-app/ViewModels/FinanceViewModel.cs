@@ -27,7 +27,6 @@ public partial class FinanceViewModel : ObservableObject
         ErrorMessage = string.Empty;
         try
         {
-            // Finance sees both Submitted and Resubmitted expenses
             var submitted    = await _expenseService.GetExpensesAsync("Submitted");
             var resubmitted  = await _expenseService.GetExpensesAsync("Resubmitted");
             var list = submitted.Concat(resubmitted)

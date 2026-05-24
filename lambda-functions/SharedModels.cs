@@ -1,32 +1,25 @@
-// ============================================================
-// SharedModels.cs — Shared data models for all Lambda functions
-// Place this file in each Lambda project or create a shared class library
-// ============================================================
-
 using System.Text.Json.Serialization;
 
 namespace ExpenseTracker.Shared
 {
-    // ─── DynamoDB Entity ───
     public class ExpenseReport
     {
-        public string PK { get; set; } = string.Empty;           // USER#<userId>
-        public string SK { get; set; } = string.Empty;           // EXPENSE#<ulid>
+        public string PK { get; set; } = string.Empty;
+        public string SK { get; set; } = string.Empty;
         public string ExpenseId { get; set; } = string.Empty;
         public string UserId { get; set; } = string.Empty;
         public string UserEmail { get; set; } = string.Empty;
         public decimal Amount { get; set; }
-        public string Category { get; set; } = string.Empty;     // travel, meals, equipment, other
+        public string Category { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;
-        public string Status { get; set; } = "Draft";            // Draft, Submitted, Approved, Rejected, Resubmitted
-        public string? ReceiptKey { get; set; }                   // S3 object key
+        public string Status { get; set; } = "Draft";
+        public string? ReceiptKey { get; set; }
         public string? ReviewerComment { get; set; }
         public string? ReviewerId { get; set; }
         public string CreatedAt { get; set; } = string.Empty;
         public string UpdatedAt { get; set; } = string.Empty;
     }
 
-    // ─── API Request DTOs ───
     public class CreateExpenseRequest
     {
         [JsonPropertyName("amount")]
@@ -39,13 +32,13 @@ namespace ExpenseTracker.Shared
         public string Description { get; set; } = string.Empty;
 
         [JsonPropertyName("status")]
-        public string Status { get; set; } = "Draft";  // Draft or Submitted
+        public string Status { get; set; } = "Draft";
     }
 
     public class UpdateStatusRequest
     {
         [JsonPropertyName("action")]
-        public string Action { get; set; } = string.Empty;  // approve, reject, resubmit
+        public string Action { get; set; } = string.Empty;
 
         [JsonPropertyName("comment")]
         public string? Comment { get; set; }
@@ -60,10 +53,9 @@ namespace ExpenseTracker.Shared
         public string FileName { get; set; } = string.Empty;
 
         [JsonPropertyName("operation")]
-        public string Operation { get; set; } = "upload";  // upload or download
+        public string Operation { get; set; } = "upload";
     }
 
-    // ─── API Response DTOs ───
     public class ApiResponse
     {
         [JsonPropertyName("statusCode")]
@@ -76,27 +68,22 @@ namespace ExpenseTracker.Shared
         public object? Data { get; set; }
     }
 
-    // ─── State Machine ───
     public static class StateMachine
     {
-        // Valid transitions: (currentStatus, action) → newStatus
         private static readonly Dictionary<(string Status, string Action), string> Transitions = new()
         {
-            { ("Draft", "submit"), "Submitted" },
-            { ("Submitted", "approve"), "Approved" },
-            { ("Submitted", "reject"), "Rejected" },
-            { ("Rejected", "resubmit"), "Resubmitted" },
-            { ("Resubmitted", "submit"), "Submitted" },
+            { ("Draft",       "submit"),   "Submitted"   },
+            { ("Submitted",   "approve"),  "Approved"    },
+            { ("Submitted",   "reject"),   "Rejected"    },
+            { ("Rejected",    "resubmit"), "Resubmitted" },
+            { ("Resubmitted", "submit"),   "Submitted"   },
         };
 
-        // Actions restricted to finance group
         private static readonly HashSet<string> FinanceOnlyActions = new() { "approve", "reject" };
-
-        // Actions restricted to the expense owner (employee)
-        private static readonly HashSet<string> OwnerOnlyActions = new() { "submit", "resubmit" };
+        private static readonly HashSet<string> OwnerOnlyActions   = new() { "submit", "resubmit" };
 
         public static bool IsFinanceOnlyAction(string action) => FinanceOnlyActions.Contains(action);
-        public static bool IsOwnerOnlyAction(string action) => OwnerOnlyActions.Contains(action);
+        public static bool IsOwnerOnlyAction(string action)   => OwnerOnlyActions.Contains(action);
 
         public static (bool IsValid, string? NewStatus) TryTransition(string currentStatus, string action)
         {
@@ -106,18 +93,13 @@ namespace ExpenseTracker.Shared
         }
     }
 
-    // ─── JWT Helper ───
     public static class JwtHelper
     {
         public static string GetUserId(Amazon.Lambda.APIGatewayEvents.APIGatewayProxyRequest request)
-        {
-            return request.RequestContext.Authorizer.Claims["sub"];
-        }
+            => request.RequestContext.Authorizer.Claims["sub"];
 
         public static string GetUserEmail(Amazon.Lambda.APIGatewayEvents.APIGatewayProxyRequest request)
-        {
-            return request.RequestContext.Authorizer.Claims["email"];
-        }
+            => request.RequestContext.Authorizer.Claims["email"];
 
         public static List<string> GetUserGroups(Amazon.Lambda.APIGatewayEvents.APIGatewayProxyRequest request)
         {
@@ -130,8 +112,6 @@ namespace ExpenseTracker.Shared
         }
 
         public static bool IsFinance(Amazon.Lambda.APIGatewayEvents.APIGatewayProxyRequest request)
-        {
-            return GetUserGroups(request).Contains("finance");
-        }
+            => GetUserGroups(request).Contains("finance");
     }
 }

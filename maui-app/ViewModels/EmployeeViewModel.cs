@@ -14,7 +14,6 @@ public partial class EmployeeViewModel : ObservableObject
 
     private FileResult? _pendingReceipt;
 
-    // Mapping affichage français → valeur API anglais
     private static readonly Dictionary<string, string> _categoryMap = new()
     {
         { "Voyage",     "travel"    },
@@ -130,7 +129,6 @@ public partial class EmployeeViewModel : ObservableObject
             var created = await _expenseService.CreateExpenseAsync(amount, apiCategory, NewDescription, status);
             if (created == null) return;
 
-            // Upload justificatif si sélectionné
             if (_pendingReceipt != null)
             {
                 var stream      = await _pendingReceipt.OpenReadAsync();

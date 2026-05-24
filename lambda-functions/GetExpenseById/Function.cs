@@ -1,9 +1,3 @@
-// ============================================================
-// GetExpenseById/Function.cs
-// GET /expenses/{expenseId}
-// Returns a single expense. Employee can only see own. Finance can see all.
-// ============================================================
-
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 using Amazon.Lambda.APIGatewayEvents;
@@ -38,13 +32,10 @@ namespace GetExpenseById
 
                 var expenseId = request.PathParameters["expenseId"];
 
-                // We need to find this expense — but we may not know the owner's userId
-                // Strategy: if employee, query with their PK. If finance, scan by ExpenseId.
                 Dictionary<string, AttributeValue>? item = null;
 
                 if (!isFinance)
                 {
-                    // Employee: can only access own expenses
                     var result = await _dynamoDb.GetItemAsync(new GetItemRequest
                     {
                         TableName = _tableName,
@@ -58,8 +49,6 @@ namespace GetExpenseById
                 }
                 else
                 {
-                    // Finance: query across all users — use a scan with filter
-                    // In production, consider a GSI on ExpenseId for O(1) lookup
                     var scanRequest = new ScanRequest
                     {
                         TableName = _tableName,
@@ -74,24 +63,22 @@ namespace GetExpenseById
                 }
 
                 if (item == null)
-                {
                     return Response(404, "Expense not found.");
-                }
 
                 var expense = new
                 {
-                    expenseId = item.GetValueOrDefault("ExpenseId")?.S,
-                    userId = item.GetValueOrDefault("UserId")?.S,
-                    userEmail = item.GetValueOrDefault("UserEmail")?.S,
-                    amount = decimal.TryParse(item.GetValueOrDefault("Amount")?.N, out var a) ? a : 0,
-                    category = item.GetValueOrDefault("Category")?.S,
-                    description = item.GetValueOrDefault("Description")?.S,
-                    status = item.GetValueOrDefault("Status")?.S,
-                    receiptKey = item.GetValueOrDefault("ReceiptKey")?.S,
+                    expenseId       = item.GetValueOrDefault("ExpenseId")?.S,
+                    userId          = item.GetValueOrDefault("UserId")?.S,
+                    userEmail       = item.GetValueOrDefault("UserEmail")?.S,
+                    amount          = decimal.TryParse(item.GetValueOrDefault("Amount")?.N, out var a) ? a : 0,
+                    category        = item.GetValueOrDefault("Category")?.S,
+                    description     = item.GetValueOrDefault("Description")?.S,
+                    status          = item.GetValueOrDefault("Status")?.S,
+                    receiptKey      = item.GetValueOrDefault("ReceiptKey")?.S,
                     reviewerComment = item.GetValueOrDefault("ReviewerComment")?.S,
-                    reviewerId = item.GetValueOrDefault("ReviewerId")?.S,
-                    createdAt = item.GetValueOrDefault("CreatedAt")?.S,
-                    updatedAt = item.GetValueOrDefault("UpdatedAt")?.S,
+                    reviewerId      = item.GetValueOrDefault("ReviewerId")?.S,
+                    createdAt       = item.GetValueOrDefault("CreatedAt")?.S,
+                    updatedAt       = item.GetValueOrDefault("UpdatedAt")?.S,
                 };
 
                 return Response(200, expense);
