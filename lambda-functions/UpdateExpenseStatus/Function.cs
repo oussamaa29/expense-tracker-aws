@@ -13,18 +13,7 @@ namespace UpdateExpenseStatus
         private readonly AmazonDynamoDBClient _dynamoDb;
         private readonly string _tableName;
 
-        private static readonly Dictionary<(string, string), string> ValidTransitions = new()
-        {
-            { ("Draft",        "submit"),   "Submitted"   },
-            { ("Submitted",    "approve"),  "Approved"    },
-            { ("Submitted",    "reject"),   "Rejected"    },
-            { ("Rejected",     "resubmit"), "Resubmitted" },
-            { ("Resubmitted",  "approve"),  "Approved"    },
-            { ("Resubmitted",  "reject"),   "Rejected"    },
-        };
-
-        private static readonly HashSet<string> FinanceActions = new() { "approve", "reject" };
-        private static readonly HashSet<string> OwnerActions   = new() { "submit", "resubmit" };
+        private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
 
         public Function()
         {
@@ -44,20 +33,25 @@ namespace UpdateExpenseStatus
                 var isFinance = groups.Contains("finance");
 
                 var expenseId = request.PathParameters["expenseId"];
-                var body = JsonSerializer.Deserialize<UpdateStatusBody>(request.Body);
+                UpdateStatusBody? body;
+                try
+                {
+                    body = string.IsNullOrEmpty(request.Body)
+                        ? null
+                        : JsonSerializer.Deserialize<UpdateStatusBody>(request.Body, JsonOptions);
+                }
+                catch (JsonException)
+                {
+                    return Response(400, "Invalid JSON body.");
+                }
                 if (body == null || string.IsNullOrEmpty(body.Action))
                     return Response(400, "Missing required field: action");
 
                 var action = body.Action.ToLower();
 
-                if (FinanceActions.Contains(action) && !isFinance)
-                    return Response(403, "Only finance managers can approve or reject expenses.");
-
-                if (OwnerActions.Contains(action) && isFinance)
-                    return Response(403, "Finance managers cannot submit or resubmit expenses.");
-
-                if (action == "reject" && string.IsNullOrWhiteSpace(body.Comment))
-                    return Response(400, "A comment is required when rejecting an expense.");
+                var error = ExpenseStateMachine.Validate(action, isFinance, body.Comment);
+                if (error is { } e)
+                    return Response(e.StatusCode, e.Message);
 
                 Dictionary<string, AttributeValue>? item = null;
                 string pk, sk;
@@ -79,16 +73,20 @@ namespace UpdateExpenseStatus
                 }
                 else
                 {
-                    var scanResult = await _dynamoDb.ScanAsync(new ScanRequest
+                    // Index secondaire sur ExpenseId : une seule lecture ciblée. Un Scan lisait
+                    // toute la table et, au-delà de 1 Mo, pouvait renvoyer une page sans la dépense.
+                    var queryResult = await _dynamoDb.QueryAsync(new QueryRequest
                     {
                         TableName = _tableName,
-                        FilterExpression = "ExpenseId = :eid",
+                        IndexName = "ExpenseIdIndex",
+                        KeyConditionExpression = "ExpenseId = :eid",
                         ExpressionAttributeValues = new Dictionary<string, AttributeValue>
                         {
                             [":eid"] = new AttributeValue(expenseId)
-                        }
+                        },
+                        Limit = 1
                     });
-                    item = scanResult.Items.FirstOrDefault();
+                    item = queryResult.Items.FirstOrDefault();
                 }
 
                 if (item == null)
@@ -97,7 +95,7 @@ namespace UpdateExpenseStatus
                 pk = item["PK"].S;
                 sk = item["SK"].S;
 
-                if (OwnerActions.Contains(action))
+                if (ExpenseStateMachine.OwnerActions.Contains(action))
                 {
                     var ownerId = item.GetValueOrDefault("UserId")?.S;
                     if (ownerId != userId)
@@ -105,7 +103,7 @@ namespace UpdateExpenseStatus
                 }
 
                 var currentStatus = item.GetValueOrDefault("Status")?.S ?? "Draft";
-                if (!ValidTransitions.TryGetValue((currentStatus, action), out var newStatus))
+                if (!ExpenseStateMachine.TryTransition(currentStatus, action, out var newStatus))
                     return Response(409, $"Invalid transition: cannot '{action}' an expense with status '{currentStatus}'.");
 
                 var now = DateTime.UtcNow.ToString("o");
