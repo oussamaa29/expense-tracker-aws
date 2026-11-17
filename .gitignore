@@ -11,3 +11,7 @@ deploy/
 # OS
 .DS_Store
 Thumbs.db
+
+# Artefacts de build
+*.zip
+*.binlog

@@ -19,6 +19,10 @@ Resources:
       UserPoolName: !Sub '${ProjectName}-users'
       AutoVerifiedAttributes: [email]
       UsernameAttributes: [email]
+      # Comptes créés par un administrateur uniquement : sans cela, n'importe qui
+      # pourrait s'inscrire avec l'identifiant client public de l'application.
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: true
       Policies:
         PasswordPolicy:
           MinimumLength: 8
@@ -72,12 +76,21 @@ Resources:
           AttributeType: S
         - AttributeName: Category
           AttributeType: S
+        - AttributeName: ExpenseId
+          AttributeType: S
       KeySchema:
         - AttributeName: PK
           KeyType: HASH
         - AttributeName: SK
           KeyType: RANGE
       GlobalSecondaryIndexes:
+        # Accès direct à une dépense par son identifiant (vue finance), sans Scan
+        - IndexName: ExpenseIdIndex
+          KeySchema:
+            - AttributeName: ExpenseId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
         - IndexName: StatusIndex
           KeySchema:
             - AttributeName: Status
@@ -133,7 +146,6 @@ Resources:
                   - dynamodb:GetItem
                   - dynamodb:Query
                   - dynamodb:UpdateItem
-                  - dynamodb:Scan
                 Resource:
                   - !GetAtt ExpenseTable.Arn
                   - !Sub '${ExpenseTable.Arn}/index/*'
@@ -151,7 +163,7 @@ Resources:
     Type: AWS::Lambda::Function
     Properties:
       FunctionName: !Sub '${ProjectName}-CreateExpense'
-      Runtime: dotnet8
+      Runtime: dotnet10
       Handler: CreateExpense::CreateExpense.Function::FunctionHandler
       Role: !GetAtt LambdaRole.Arn
       MemorySize: 256
@@ -168,7 +180,7 @@ Resources:
     Type: AWS::Lambda::Function
     Properties:
       FunctionName: !Sub '${ProjectName}-GetExpenses'
-      Runtime: dotnet8
+      Runtime: dotnet10
       Handler: GetExpenses::GetExpenses.Function::FunctionHandler
       Role: !GetAtt LambdaRole.Arn
       MemorySize: 256
@@ -184,7 +196,7 @@ Resources:
     Type: AWS::Lambda::Function
     Properties:
       FunctionName: !Sub '${ProjectName}-GetExpenseById'
-      Runtime: dotnet8
+      Runtime: dotnet10
       Handler: GetExpenseById::GetExpenseById.Function::FunctionHandler
       Role: !GetAtt LambdaRole.Arn
       MemorySize: 256
@@ -200,7 +212,7 @@ Resources:
     Type: AWS::Lambda::Function
     Properties:
       FunctionName: !Sub '${ProjectName}-UpdateExpenseStatus'
-      Runtime: dotnet8
+      Runtime: dotnet10
       Handler: UpdateExpenseStatus::UpdateExpenseStatus.Function::FunctionHandler
       Role: !GetAtt LambdaRole.Arn
       MemorySize: 256
@@ -216,7 +228,7 @@ Resources:
     Type: AWS::Lambda::Function
     Properties:
       FunctionName: !Sub '${ProjectName}-GeneratePresignedUrl'
-      Runtime: dotnet8
+      Runtime: dotnet10
       Handler: GeneratePresignedUrl::GeneratePresignedUrl.Function::FunctionHandler
       Role: !GetAtt LambdaRole.Arn
       MemorySize: 256

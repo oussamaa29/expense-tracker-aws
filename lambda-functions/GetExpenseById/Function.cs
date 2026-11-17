@@ -49,17 +49,20 @@ namespace GetExpenseById
                 }
                 else
                 {
-                    var scanRequest = new ScanRequest
+                    // Index secondaire sur ExpenseId : une seule lecture ciblée. Un Scan lisait
+                    // toute la table et, au-delà de 1 Mo, pouvait renvoyer une page sans la dépense.
+                    var queryResult = await _dynamoDb.QueryAsync(new QueryRequest
                     {
                         TableName = _tableName,
-                        FilterExpression = "ExpenseId = :eid",
+                        IndexName = "ExpenseIdIndex",
+                        KeyConditionExpression = "ExpenseId = :eid",
                         ExpressionAttributeValues = new Dictionary<string, AttributeValue>
                         {
                             [":eid"] = new AttributeValue(expenseId)
-                        }
-                    };
-                    var result = await _dynamoDb.ScanAsync(scanRequest);
-                    item = result.Items.FirstOrDefault();
+                        },
+                        Limit = 1
+                    });
+                    item = queryResult.Items.FirstOrDefault();
                 }
 
                 if (item == null)
